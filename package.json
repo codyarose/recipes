@@ -5,40 +5,60 @@
   "type": "module",
   "scripts": {
     "build": "remix vite:build",
-    "deploy": "wrangler pages deploy ./build/client",
     "dev": "remix vite:dev",
+    "format": "prettier --write .",
     "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
     "start": "wrangler pages dev ./build/client",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "pages:deploy": "pnpm build && pnpm migrations:apply && wrangler pages deploy ./public",
+    "migrations:gen": "drizzle-kit generate:sqlite --config=./drizzle.config.ts",
+    "migrations:up": "drizzle-kit up:sqlite --config=./drizzle.config.ts",
+    "migrations:apply": "npx wrangler d1 migrations apply notebook-db",
+    "local:migrations:apply": "npx wrangler d1 migrations apply notebook-db --local"
   },
   "dependencies": {
     "@remix-run/cloudflare": "^2.6.0",
     "@remix-run/cloudflare-pages": "^2.6.0",
     "@remix-run/react": "^2.6.0",
+    "drizzle-orm": "^0.29.3",
     "isbot": "^4.1.0",
     "miniflare": "^3.20231030.4",
+    "nanoid": "^5.0.5",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "remix-auth": "^3.6.0",
+    "remix-auth-google": "^2.0.0",
+    "remix-flat-routes": "^0.6.4"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20230518.0",
     "@remix-run/dev": "^2.6.0",
+    "@remix-run/eslint-config": "^2.6.0",
+    "@types/eslint": "^8.56.2",
     "@types/react": "^18.2.20",
     "@types/react-dom": "^18.2.7",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
-    "eslint": "^8.38.0",
-    "eslint-config-prettier": "^9.0.0",
+    "drizzle-kit": "^0.20.14",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
     "eslint-import-resolver-typescript": "^3.6.1",
     "eslint-plugin-import": "^2.28.1",
     "eslint-plugin-jsx-a11y": "^6.7.1",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "node-fetch": "^3.3.2",
+    "prettier": "^3.2.5",
+    "prettier-plugin-tailwindcss": "^0.5.11",
     "typescript": "^5.1.6",
     "vite": "^5.0.0",
     "vite-tsconfig-paths": "^4.2.1",
     "wrangler": "^3.24.0"
   },
+  "eslintIgnore": [
+    "/node_modules",
+    "/build",
+    "/public/build"
+  ],
   "engines": {
     "node": ">=18.0.0"
   }

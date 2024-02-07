@@ -1,0 +1,48 @@
+{
+  "version": "5",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1707170796346,
+      "tag": "0000_blushing_speed",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1707254302049,
+      "tag": "0001_silky_the_fallen",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1707255050128,
+      "tag": "0002_fuzzy_mother_askani",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1707255090723,
+      "tag": "0003_melted_scourge",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1707259373792,
+      "tag": "0004_fancy_paibok",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1707274677075,
+      "tag": "0005_chubby_rumiko_fujikawa",
+      "breakpoints": true
+    }
+  ]
+}
