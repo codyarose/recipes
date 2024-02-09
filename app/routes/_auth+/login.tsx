@@ -1,6 +1,7 @@
 import { LoaderFunctionArgs, json } from '@remix-run/cloudflare'
 import { Form, useLoaderData } from '@remix-run/react'
 import { users } from 'drizzle/users.sql'
+import { Button } from '~/components/ui/button'
 import { authenticator } from '~/services/authenticator.server'
 import { db } from '~/services/db.server'
 
@@ -16,11 +17,11 @@ export default function Login() {
 		<div>
 			{Boolean(user) ? (
 				<Form action="/resources/auth/logout" method="POST">
-					<button>Log out</button>
+					<Button>Log out</Button>
 				</Form>
 			) : (
 				<Form action="/resources/auth/google" method="POST">
-					<button>Login with Google</button>
+					<Button>Login with Google</Button>
 				</Form>
 			)}
 		</div>

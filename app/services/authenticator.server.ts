@@ -31,15 +31,16 @@ export class Auth {
 					callbackURL: '/resources/auth/google/callback',
 				},
 				async ({ accessToken, refreshToken, extraParams, profile }) => {
+					const { email, given_name } = profile._json
 					const [user] = await database
 						.insert(users)
 						.values({
-							email: profile.emails[0].value,
-							username: profile.name.givenName,
+							email,
+							username: given_name,
 						})
 						.onConflictDoUpdate({
 							target: users.email,
-							set: { email: profile.emails[0].value },
+							set: { email },
 						})
 						.returning({
 							userId: users.userId,
