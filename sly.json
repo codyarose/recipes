@@ -1,0 +1,15 @@
+{
+  "$schema": "https://sly-cli.fly.dev/registry/config.json",
+  "libraries": [
+    {
+      "name": "@radix-ui/icons",
+      "directory": "./svg-icons",
+      "postinstall": ["npm", "run", "build:icons"],
+      "transformers": [
+        "sly/svg-remove-dimensions.ts",
+        "sly/html-prettier.ts",
+        "sly/html-add-license-info.js"
+      ]
+    }
+  ]
+}
