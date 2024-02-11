@@ -54,16 +54,18 @@ export const zGraph = z
 	})
 	.passthrough()
 
-export function findRecipe(graph: z.infer<typeof zGraph>['@graph'] | null) {
-	return graph?.find((item): item is zRecipe => item['@type'] === 'Recipe')
+export function findRecipe(graph: z.infer<typeof zGraph> | null) {
+	return graph?.['@graph'].find(
+		(item): item is zRecipe => item['@type'] === 'Recipe',
+	)
 }
-export function findArticle(graph: z.infer<typeof zGraph>['@graph'] | null) {
-	return graph?.find((item): item is zArticle => item['@type'] === 'Article')
+export function findArticle(graph: z.infer<typeof zGraph> | null) {
+	return graph?.['@graph'].find(
+		(item): item is zArticle => item['@type'] === 'Article',
+	)
 }
-export function findOrganization(
-	graph: z.infer<typeof zGraph>['@graph'] | null,
-) {
-	return graph?.find(
+export function findOrganization(graph: z.infer<typeof zGraph> | null) {
+	return graph?.['@graph'].find(
 		(item): item is zOrganization => item['@type'] === 'Organization',
 	)
 }

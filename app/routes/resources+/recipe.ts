@@ -1,6 +1,5 @@
 import { LoaderFunctionArgs, json } from '@remix-run/cloudflare'
 import { z } from 'zod'
-import { JSDOM } from 'jsdom'
 import {
 	findArticle,
 	findOrganization,
@@ -8,6 +7,70 @@ import {
 	zGraph,
 	zSavedRecipe,
 } from '~/schema'
+
+interface Parser {
+	setup(htmlRewriter: HTMLRewriter): HTMLRewriter
+	getResult(): string | null
+}
+
+async function parseResponse<T extends { [keys in string]: Parser }>(
+	response: Response,
+	config: T,
+): Promise<Record<keyof T, string | null>> {
+	let htmlRewriter = new HTMLRewriter()
+
+	for (const parser of Object.values(config)) {
+		htmlRewriter = parser.setup(htmlRewriter)
+	}
+
+	let res = htmlRewriter.transform(response)
+
+	await res.arrayBuffer()
+
+	return Object.fromEntries(
+		Object.entries(config).map(([key, parser]) => [key, parser.getResult()]),
+	) as Record<keyof T, string | null>
+}
+
+function mergeParsers(...parsers: Parser[]): Parser {
+	return {
+		setup(htmlRewriter: HTMLRewriter): HTMLRewriter {
+			return parsers.reduce(
+				(rewriter, parser) => parser.setup(rewriter),
+				htmlRewriter,
+			)
+		},
+		getResult() {
+			let result: string | null = null
+
+			for (let parser of parsers) {
+				result = parser.getResult()
+
+				if (result !== null) {
+					break
+				}
+			}
+
+			return result
+		},
+	}
+}
+
+function createElementParser(selector: string): Parser {
+	let content = ''
+	return {
+		setup(htmlRewriter: HTMLRewriter): HTMLRewriter {
+			return htmlRewriter.on(selector, {
+				text(text) {
+					if (!text.lastInTextNode) content += text.text
+				},
+			})
+		},
+		getResult() {
+			return content
+		},
+	}
+}
 
 export async function loader({ request }: LoaderFunctionArgs) {
 	const url = new URL(request.url)
@@ -21,37 +84,28 @@ export async function loader({ request }: LoaderFunctionArgs) {
 	}
 
 	const { recipe, organization } = await getRecipeFromUrl(recipeUrl.data)
-
 	return json({ recipe, organization })
 }
 
-const sanitizeHtml = (html: string) => {
-	return html.replace(/<style([\S\s]*?)>([\S\s]*?)<\/style>/gim, '')
-}
-
 async function getRecipeFromUrl(url: string) {
-	const dom = await fetch(url)
-		.then(res => res.text())
-		.then(html => new JSDOM(sanitizeHtml(html), { contentType: 'text/html' }))
-	const jsonLdScripts = Array.from(
-		dom.window.document.querySelectorAll('script[type="application/ld+json"]'),
-	)
+	const response = await fetch(url)
+	if (!response.ok) {
+		throw new Response('Failed to fetch recipe', { status: 404 })
+	}
+	const page = await parseResponse(response, {
+		script: mergeParsers(
+			createElementParser('script[type="application/ld+json"]'),
+		),
+	})
 
-	const schemaData = jsonLdScripts
-		.filter(
-			(script): script is Element & { textContent: string } =>
-				typeof script.textContent === 'string',
-		)
-		.flatMap(script => {
-			const json = zGraph.safeParse(JSON.parse(script.textContent))
-			if (!json.success) {
-				throw new Error('Invalid JSON-LD')
-			}
-			return json.data['@graph']
-		})
-	const recipe = findRecipe(schemaData)
-	const article = findArticle(schemaData)
-	const organization = findOrganization(schemaData)
+	const schema = zGraph.safeParse(JSON.parse(page.script ?? 'null'))
+	if (!schema.success) {
+		throw new Response('Invalid JSON-LD', { status: 400 })
+	}
+
+	const recipe = findRecipe(schema.data)
+	const article = findArticle(schema.data)
+	const organization = findOrganization(schema.data)
 	if (!recipe) {
 		throw new Response('No recipe found', { status: 404 })
 	}
