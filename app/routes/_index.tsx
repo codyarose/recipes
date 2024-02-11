@@ -17,7 +17,6 @@ import { loader as recipeLoader } from '~/routes/resources+/recipe'
 import { getRecipeKey, zodFilteredArray } from '~/utils/misc'
 import { zSavedRecipe } from '~/schema'
 import { RecipeCard } from '~/components/RecipeCard'
-import { Icon } from '~/components/ui/icon'
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -26,6 +25,7 @@ import {
 } from '~/components/ui/dropdown-menu'
 import { parseWithZod } from '@conform-to/zod'
 import { useRef, useState } from 'react'
+import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 
 export async function clientLoader({}: ClientLoaderFunctionArgs) {
 	const keys = await localforage.keys()
@@ -126,7 +126,7 @@ export default function Index() {
 												size="icon"
 												className="z-10 hover:bg-stone-200/50"
 											>
-												<Icon name="dots-horizontal" />
+												<DotsHorizontalIcon />
 											</Button>
 										</DropdownMenuTrigger>
 										<DropdownMenuContent>

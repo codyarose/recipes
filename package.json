@@ -14,8 +14,7 @@
     "migrations:gen": "drizzle-kit generate:sqlite --config=./drizzle.config.ts",
     "migrations:up": "drizzle-kit up:sqlite --config=./drizzle.config.ts",
     "migrations:apply": "npx wrangler d1 migrations apply notebook-db",
-    "local:migrations:apply": "npx wrangler d1 migrations apply notebook-db --local",
-    "build:icons": "icons build -i ./svg-icons -o ./app/components/icons"
+    "local:migrations:apply": "npx wrangler d1 migrations apply notebook-db --local"
   },
   "dependencies": {
     "@conform-to/react": "^1.0.1",
@@ -69,7 +68,6 @@
     "node-fetch": "^3.3.2",
     "prettier": "^3.2.5",
     "prettier-plugin-tailwindcss": "^0.5.11",
-    "svg-icons-cli": "^0.0.6",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.1.6",
     "vite": "^5.0.0",

@@ -15,8 +15,7 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "~/*": ["./app/*"],
-      "~/icon-name": ["${iconsOutput}/name.d.ts", "${types}"]
+      "~/*": ["./app/*"]
     },
 
     // Vite takes care of building everything, not tsc.
