@@ -1,4 +1,8 @@
 import { z } from 'zod'
+import dayjs from 'dayjs'
+import duration from 'dayjs/plugin/duration'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import { zSavedRecipe } from '~/schema'
 
 export function getErrorMessage(error: unknown) {
 	if (typeof error === 'string') return error
@@ -22,7 +26,33 @@ export function zodFilteredArray<Schema>(schema: z.ZodType<Schema, any, any>) {
 		.catch([])
 }
 
-export function getRecipeKey(url: string) {
-	const { hostname, pathname } = new URL(url)
-	return `${hostname.replace(/\./g, '-')}-${pathname.replace(/\//g, '')}`.toLowerCase()
+const slugify = (text: string) => text.replace(/\s+/g, '-').toLowerCase()
+
+export function formatRecipeId(data: Omit<zSavedRecipe, 'id'>) {
+	const organization = slugify(data.organization?.name || '')
+	const recipeName = slugify(data.recipe.name)
+	return `${organization}-${recipeName}`
+}
+
+dayjs.extend(duration)
+dayjs.extend(relativeTime)
+export function formatISODuration(isoString: string) {
+	const parsedDuration = dayjs.duration(isoString)
+	return parsedDuration
+}
+
+export async function withTimeout<T>(
+	promise: Promise<T>,
+	timeoutMs: number = 5000,
+) {
+	const controller = new AbortController()
+	const id = setTimeout(() => controller.abort(), timeoutMs)
+	return Promise.race([
+		promise,
+		new Promise((_, reject) =>
+			controller.signal.addEventListener('abort', () =>
+				reject(new Error('Timeout')),
+			),
+		),
+	]).finally(() => clearTimeout(id))
 }

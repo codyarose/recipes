@@ -1,5 +1,5 @@
-import { LoaderFunctionArgs, json } from '@remix-run/cloudflare'
-import { z } from 'zod'
+import { Duration } from 'dayjs/plugin/duration'
+import { decode } from 'html-entities'
 import {
 	findArticle,
 	findOrganization,
@@ -7,6 +7,17 @@ import {
 	zGraph,
 	zSavedRecipe,
 } from '~/schema'
+import { formatISODuration } from '~/utils/misc'
+
+export async function checkUrl(url: string) {
+	try {
+		const response = await fetch(url, { method: 'HEAD' })
+		return response.ok
+	} catch (error) {
+		console.error('Error checking URL:', error)
+		return false
+	}
+}
 
 interface Parser {
 	setup(htmlRewriter: HTMLRewriter): HTMLRewriter
@@ -56,45 +67,30 @@ function mergeParsers(...parsers: Parser[]): Parser {
 	}
 }
 
-function createElementParser(selector: string): Parser {
-	let content = ''
+function createTextParser(selector: string): Parser {
+	let text: string | null = null
 	return {
 		setup(htmlRewriter: HTMLRewriter): HTMLRewriter {
 			return htmlRewriter.on(selector, {
-				text(text) {
-					if (!text.lastInTextNode) content += text.text
+				text(element) {
+					text = (text ?? '') + element.text
 				},
 			})
 		},
 		getResult() {
-			return content
+			return text ? decode(text) : null
 		},
 	}
 }
 
-export async function loader({ request }: LoaderFunctionArgs) {
-	const url = new URL(request.url)
-	const recipeUrl = z
-		.string()
-		.url()
-		.safeParse(url.searchParams.get('recipeUrl'))
-
-	if (!recipeUrl.success) {
-		throw new Response('Invalid recipe URL', { status: 400 })
-	}
-
-	const { recipe, organization } = await getRecipeFromUrl(recipeUrl.data)
-	return json({ recipe, organization })
-}
-
-async function getRecipeFromUrl(url: string) {
+export async function getRecipeFromUrl(url: string) {
 	const response = await fetch(url)
 	if (!response.ok) {
 		throw new Response('Failed to fetch recipe', { status: 404 })
 	}
 	const page = await parseResponse(response, {
 		script: mergeParsers(
-			createElementParser('script[type="application/ld+json"]'),
+			createTextParser('script[type="application/ld+json"]'),
 		),
 	})
 
@@ -102,7 +98,7 @@ async function getRecipeFromUrl(url: string) {
 	if (!schema.success) {
 		throw new Response('Invalid JSON-LD', { status: 400 })
 	}
-
+	console.log(JSON.parse(page.script ?? 'null'))
 	const recipe = findRecipe(schema.data)
 	const article = findArticle(schema.data)
 	const organization = findOrganization(schema.data)
@@ -110,7 +106,7 @@ async function getRecipeFromUrl(url: string) {
 		throw new Response('No recipe found', { status: 404 })
 	}
 
-	return zSavedRecipe.parse({
+	return zSavedRecipe.omit({ id: true }).parse({
 		recipe: {
 			url,
 			thumbnailUrl: article?.thumbnailUrl ?? '',
@@ -118,6 +114,10 @@ async function getRecipeFromUrl(url: string) {
 			description: recipe.description,
 			ingredients: recipe.recipeIngredient,
 			instructions: recipe.recipeInstructions,
+			yield: recipe.recipeYield,
+			prepTime: formatDuration(recipe.prepTime),
+			cookTime: formatDuration(recipe.cookTime),
+			totalTime: formatDuration(recipe.totalTime),
 			sourceUrl: recipe['@id'],
 		},
 		organization: {
@@ -125,4 +125,23 @@ async function getRecipeFromUrl(url: string) {
 			url: organization?.url ?? null,
 		},
 	})
+}
+
+function formatDuration(isoString: string) {
+	const duration = formatISODuration(isoString)
+	return {
+		label: formatDurationLabel(duration),
+		duration: duration.asSeconds(),
+	}
+}
+
+function formatDurationLabel(duration: Duration) {
+	const hours = duration.hours()
+	const minutes = duration.minutes()
+	const parts = [
+		hours > 0 ? `${hours} hr${hours > 1 ? 's' : ''}` : '',
+		minutes > 0 ? `${minutes} min${minutes > 1 ? 's' : ''}` : '',
+	].filter(part => part !== '')
+
+	return parts.join(' ')
 }

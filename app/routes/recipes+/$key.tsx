@@ -11,7 +11,6 @@ import { z } from 'zod'
 import { RecipeCard } from '~/components/RecipeCard'
 import { Button } from '~/components/ui/button'
 import { zSavedRecipe } from '~/schema'
-import { getRecipeKey } from '~/utils/misc'
 
 export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
 	const key = z.string().safeParse(params.key)
@@ -24,6 +23,7 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
 		throw new Response('Recipe not found', { status: 404 })
 
 	return json({
+		id: savedRecipe.data.id,
 		recipe: savedRecipe.data.recipe,
 		organization: savedRecipe.data.organization,
 	} as const)
@@ -31,25 +31,21 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
 
 export async function clientAction({ request }: ClientActionFunctionArgs) {
 	const formData = await request.formData()
-	const recipeKey = z.string().parse(formData.get('recipeKey'))
-	await localforage.removeItem(recipeKey)
+	const recipeId = z.string().parse(formData.get('recipeId'))
+	await localforage.removeItem(recipeId)
 
 	return redirect('/')
 }
 
 export default function Recipe() {
-	const { recipe, organization } = useLoaderData<typeof clientLoader>()
+	const { id, recipe, organization } = useLoaderData<typeof clientLoader>()
 
 	return (
-		<div className="container flex max-w-xl flex-col gap-4 pt-6">
+		<div className="container flex flex-col gap-4 pt-6">
 			<RecipeCard recipe={recipe} organization={organization} />
 
 			<Form method="POST">
-				<input
-					type="hidden"
-					name="recipeKey"
-					value={getRecipeKey(recipe.url)}
-				/>
+				<input type="hidden" name="recipeId" value={id} />
 				<Button
 					variant="destructive"
 					size="lg"

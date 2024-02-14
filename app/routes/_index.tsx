@@ -2,21 +2,15 @@ import { json, redirect } from '@remix-run/cloudflare'
 import {
 	ClientActionFunctionArgs,
 	ClientLoaderFunctionArgs,
-	Form,
 	Link,
-	useFetcher,
 	useLoaderData,
 	useSubmit,
 } from '@remix-run/react'
 import { z } from 'zod'
-import { Label } from '~/components/ui/label'
-import { Input } from '~/components/ui/input'
 import { Button } from '~/components/ui/button'
 import localforage from 'localforage'
-import { loader as recipeLoader } from '~/routes/resources+/recipe'
-import { getRecipeKey, zodFilteredArray } from '~/utils/misc'
+import { formatRecipeId, zodFilteredArray } from '~/utils/misc'
 import { zSavedRecipe } from '~/schema'
-import { RecipeCard } from '~/components/RecipeCard'
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -24,10 +18,16 @@ import {
 	DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
 import { parseWithZod } from '@conform-to/zod'
-import { useRef, useState } from 'react'
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
+// import { tempRecipes } from '~/utils/temp'
 
 export async function clientLoader({}: ClientLoaderFunctionArgs) {
+	// if (import.meta.env.MODE === 'development') {
+	// 	tempRecipes.forEach(async item => {
+	// 		await localforage.setItem(item.id, item)
+	// 	})
+	// }
+
 	const keys = await localforage.keys()
 	const savedRecipes = await Promise.all(
 		keys.map(key => localforage.getItem(key)),
@@ -41,19 +41,21 @@ export async function clientLoader({}: ClientLoaderFunctionArgs) {
 const schema = z.discriminatedUnion('_action', [
 	z.object({
 		_action: z.literal('ADD'),
-		recipeUrl: z.string({ required_error: 'Recipe URL is required' }),
-		recipeData: z.preprocess(str => {
-			if (typeof str !== 'string') return undefined
-			try {
-				return JSON.parse(str)
-			} catch (error) {
-				return undefined
-			}
-		}, zSavedRecipe),
+		recipeData: z.preprocess(
+			str => {
+				if (typeof str !== 'string') return undefined
+				try {
+					return JSON.parse(str)
+				} catch (error) {
+					return undefined
+				}
+			},
+			zSavedRecipe.omit({ id: true }),
+		),
 	}),
 	z.object({
 		_action: z.literal('DELETE'),
-		recipeKey: z.string({ required_error: 'Recipe key is required' }),
+		recipeId: z.string({ required_error: 'Recipe id is required' }),
 	}),
 ])
 
@@ -66,13 +68,13 @@ export async function clientAction({ request }: ClientActionFunctionArgs) {
 
 	const _action = submission.value._action
 	if (_action === 'ADD') {
-		const { recipeUrl, recipeData } = submission.value
-		const key = getRecipeKey(recipeUrl)
-		await localforage.setItem(key, recipeData)
-		return redirect(`/recipe/${key}`)
+		const { recipeData } = submission.value
+		const id = formatRecipeId(recipeData)
+		await localforage.setItem(id, { id, ...recipeData })
+		return redirect(`/recipes/${id}`)
 	} else if (_action === 'DELETE') {
-		const { recipeKey } = submission.value
-		await localforage.removeItem(recipeKey)
+		const { recipeId } = submission.value
+		await localforage.removeItem(recipeId)
 		return null
 	} else {
 		throw new Error(`Invalid _action: '${_action}'`)
@@ -85,15 +87,14 @@ export function HydrateFallback() {
 
 export default function Index() {
 	const { savedRecipes } = useLoaderData<typeof clientLoader>()
-	const recipeFetcher = useFetcher<typeof recipeLoader>()
 	const submit = useSubmit()
 
 	return (
-		<div className="container flex max-w-xl flex-col gap-12 pt-6">
+		<div className="container flex flex-col gap-12 pt-6">
 			<div className="flex flex-col gap-3">
 				<h2 className="text-xl">Recipes</h2>
 				<ul className="flex flex-col gap-2">
-					{savedRecipes.map(({ recipe, organization }) => (
+					{savedRecipes.map(({ id, recipe, organization }) => (
 						<li key={recipe.url}>
 							<Button
 								variant="outline"
@@ -102,7 +103,7 @@ export default function Index() {
 							>
 								<div>
 									<Link
-										to={`/recipe/${getRecipeKey(recipe.url)}`}
+										to={`/recipes/${id}`}
 										className="after:absolute after:inset-0 after:h-full after:w-full"
 									>
 										<div className="flex flex-col">
@@ -134,7 +135,7 @@ export default function Index() {
 												onSelect={() =>
 													submit(
 														{
-															recipeKey: getRecipeKey(recipe.url),
+															recipeId: id,
 															_action: 'DELETE',
 														},
 														{ method: 'POST' },
@@ -151,70 +152,7 @@ export default function Index() {
 						</li>
 					))}
 				</ul>
-
-				{/* <AddNewRecipe /> */}
 			</div>
-
-			<recipeFetcher.Form method="GET" action="/resources/recipe">
-				<Label>
-					Recipe URL:
-					<Input type="text" name="recipeUrl" />
-				</Label>
-			</recipeFetcher.Form>
-
-			{recipeFetcher.data ? (
-				<div className="flex flex-col gap-4">
-					<RecipeCard
-						recipe={recipeFetcher.data.recipe}
-						organization={recipeFetcher.data.organization}
-					/>
-					<Form method="POST">
-						<input
-							type="hidden"
-							name="recipeUrl"
-							value={recipeFetcher.data.recipe.url}
-						/>
-						<input
-							type="hidden"
-							name="recipeData"
-							value={JSON.stringify(recipeFetcher.data)}
-						/>
-						<Button
-							size="lg"
-							type="submit"
-							className="w-full"
-							name="_action"
-							value="ADD"
-						>
-							Save
-						</Button>
-					</Form>
-				</div>
-			) : null}
-		</div>
-	)
-}
-
-function AddNewRecipe() {
-	const [open, setOpen] = useState(false)
-	const inputRef = useRef<HTMLInputElement>(null)
-
-	return (
-		<div className="flex gap-1">
-			<Input
-				ref={inputRef}
-				placeholder="https://www.example.com/recipe"
-				className={`flex-1 transition-all duration-200 ease-in-out ${!open ? 'w-0 opacity-0' : 'w-full opacity-100'}`}
-			/>
-			<Button
-				onClick={() => {
-					setOpen(true)
-					inputRef.current?.focus()
-				}}
-				className={`transition-all duration-200 ease-in-out ${open ? 'flex-shrink' : 'w-full'}`}
-			>
-				{open ? 'Fetch recipe' : 'Add new recipe'}
-			</Button>
 		</div>
 	)
 }

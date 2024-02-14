@@ -15,7 +15,7 @@ import { Link } from '@remix-run/react'
 export function RecipeCard({
 	recipe,
 	organization,
-}: z.infer<typeof zSavedRecipe>) {
+}: Omit<z.infer<typeof zSavedRecipe>, 'id'>) {
 	return (
 		<Card>
 			<CardHeader>

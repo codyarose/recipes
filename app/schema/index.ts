@@ -22,6 +22,22 @@ const zOrganization = z.object({
 })
 export type zOrganization = z.infer<typeof zOrganization>
 
+const zNutritionInformation = z.object({
+	'@type': z.literal('NutritionInformation'),
+	calories: z.string().optional(),
+	carbohydrateContent: z.string().optional(),
+	cholesterolContent: z.string().optional(),
+	fatContent: z.string().optional(),
+	fiberContent: z.string().optional(),
+	proteinContent: z.string().optional(),
+	saturatedFatContent: z.string().optional(),
+	servingSize: z.string().optional(),
+	sodiumContent: z.string().optional(),
+	sugarContent: z.string().optional(),
+	transFatContent: z.string().optional(),
+	unsaturatedFatContent: z.string().optional(),
+})
+
 export const zArticle = z
 	.object({
 		'@type': z.literal('Article'),
@@ -41,6 +57,14 @@ export const zRecipe = z
 		image: z.array(z.string().url()),
 		recipeIngredient: zodFilteredArray(z.string()),
 		recipeInstructions: zodFilteredArray(zHowToStep),
+		recipeYield: z.array(z.string()),
+		recipeCategory: z.array(z.string()),
+		recipeCuisine: z.array(z.string()),
+		prepTime: z.string(),
+		cookTime: z.string(),
+		totalTime: z.string(),
+		nutrition: zNutritionInformation.optional(),
+		keywords: z.string(),
 	})
 	.passthrough()
 export type zRecipe = z.infer<typeof zRecipe>
@@ -71,6 +95,7 @@ export function findOrganization(graph: z.infer<typeof zGraph> | null) {
 }
 
 export const zSavedRecipe = z.object({
+	id: z.string(),
 	recipe: z.object({
 		url: z.string().url(),
 		thumbnailUrl: z.string(),
@@ -79,9 +104,23 @@ export const zSavedRecipe = z.object({
 		ingredients: z.array(z.string()),
 		instructions: z.array(zHowToStep),
 		sourceUrl: z.string().url(),
+		yield: z.array(z.string()),
+		prepTime: z.object({
+			label: z.string(),
+			duration: z.number(),
+		}),
+		cookTime: z.object({
+			label: z.string(),
+			duration: z.number(),
+		}),
+		totalTime: z.object({
+			label: z.string(),
+			duration: z.number(),
+		}),
 	}),
 	organization: z.object({
 		name: z.string().nullable(),
 		url: z.string().nullable(),
 	}),
 })
+export type zSavedRecipe = z.infer<typeof zSavedRecipe>
