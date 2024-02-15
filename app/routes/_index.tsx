@@ -19,7 +19,10 @@ import {
 } from '~/components/ui/dropdown-menu'
 import { parseWithZod } from '@conform-to/zod'
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
-// import { tempRecipes } from '~/utils/temp'
+
+export async function loader() {
+	return redirect('/recipes')
+}
 
 export async function clientLoader({}: ClientLoaderFunctionArgs) {
 	// if (import.meta.env.MODE === 'development') {

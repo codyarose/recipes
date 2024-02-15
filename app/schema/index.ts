@@ -53,18 +53,17 @@ export const zRecipe = z
 		'@id': z.string(),
 		name: z.string(),
 		description: z.string(),
-		datePublished: z.coerce.date(),
 		image: z.array(z.string().url()),
 		recipeIngredient: zodFilteredArray(z.string()),
 		recipeInstructions: zodFilteredArray(zHowToStep),
 		recipeYield: z.array(z.string()),
-		recipeCategory: z.array(z.string()),
-		recipeCuisine: z.array(z.string()),
+		recipeCategory: z.union([z.string(), z.array(z.string())]),
+		recipeCuisine: z.union([z.string(), z.array(z.string())]).optional(),
 		prepTime: z.string(),
 		cookTime: z.string(),
 		totalTime: z.string(),
 		nutrition: zNutritionInformation.optional(),
-		keywords: z.string(),
+		keywords: z.string().catch(''),
 	})
 	.passthrough()
 export type zRecipe = z.infer<typeof zRecipe>

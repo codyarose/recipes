@@ -37,21 +37,27 @@ export function formatRecipeId(data: Omit<zSavedRecipe, 'id'>) {
 dayjs.extend(duration)
 dayjs.extend(relativeTime)
 export function formatISODuration(isoString: string) {
-	const parsedDuration = dayjs.duration(isoString)
-	return parsedDuration
+	return dayjs.duration(isoString)
+}
+
+export class TimeoutError extends Error {
+	constructor(message: string) {
+		super(message)
+		this.name = 'TimeoutError'
+	}
 }
 
 export async function withTimeout<T>(
 	promise: Promise<T>,
 	timeoutMs: number = 5000,
-) {
+): Promise<T> {
 	const controller = new AbortController()
 	const id = setTimeout(() => controller.abort(), timeoutMs)
 	return Promise.race([
 		promise,
-		new Promise((_, reject) =>
+		new Promise<T>((_, reject) =>
 			controller.signal.addEventListener('abort', () =>
-				reject(new Error('Timeout')),
+				reject(new TimeoutError('Operation timed out')),
 			),
 		),
 	]).finally(() => clearTimeout(id))

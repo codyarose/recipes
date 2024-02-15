@@ -1,24 +1,19 @@
-import {
-	CookieIcon,
-	MagnifyingGlassIcon,
-	PlusCircledIcon,
-} from '@radix-ui/react-icons'
+import { MagnifyingGlassIcon, PlusCircledIcon } from '@radix-ui/react-icons'
 import {
 	ClientLoaderFunctionArgs,
 	Form,
-	Link,
 	NavLink,
 	Outlet,
 	json,
 	useLoaderData,
+	useNavigation,
 } from '@remix-run/react'
 import localforage from 'localforage'
-import { PropsWithChildren } from 'react'
+import { PropsWithChildren, useEffect, useState } from 'react'
 import { Button } from '~/components/ui/button'
 import {
 	Dialog,
 	DialogContent,
-	DialogDescription,
 	DialogHeader,
 	DialogOverlay,
 	DialogTitle,
@@ -48,8 +43,8 @@ export default function Recipes() {
 	const { savedRecipes } = useLoaderData<typeof clientLoader>()
 
 	return (
-		<div className="flex h-dvh">
-			<div className="flex w-60 flex-col border-r px-3 py-2">
+		<div className="relative grid grid-cols-[min-content_1fr]">
+			<div className="sticky left-0 top-0 flex h-dvh min-w-60 flex-col overflow-y-auto border-r px-3 py-2">
 				<div className="flex flex-col gap-3 py-3">
 					<NavLink
 						to="/recipes"
@@ -89,47 +84,53 @@ export default function Recipes() {
 					))}
 				</ul>
 			</div>
-			<div className="flex flex-1 overflow-hidden">
-				<div className="flex-1 overflow-y-auto">
-					<Outlet />
-				</div>
+
+			<div>
+				<Outlet />
 			</div>
 		</div>
 	)
 }
 
 function NewRecipeDialog({ children }: PropsWithChildren<{}>) {
+	const [isOpen, setIsOpen] = useState(false)
+	const transition = useNavigation()
+	useEffect(() => {
+		if (transition.state === 'idle') {
+			setIsOpen(false)
+		}
+	}, [transition.state])
+
 	return (
-		<Dialog>
+		<Dialog open={isOpen} onOpenChange={setIsOpen}>
 			<DialogTrigger asChild>{children}</DialogTrigger>
 			<DialogOverlay />
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Add a new recipe</DialogTitle>
-					<DialogDescription>
-						<div className="flex flex-col gap-2">
-							<Form
-								method="GET"
-								className="grid grid-cols-[1fr_min-content] gap-3"
-							>
-								<Label htmlFor="recipeUrl" className="sr-only">
-									Add a new recipe
-								</Label>
-								<Input
-									type="text"
-									autoFocus
-									id="recipeUrl"
-									name="recipeUrl"
-									placeholder="https://example.com/really-good-tacos"
-									className="placeholder:text-gray-400"
-								/>
-								<Button type="submit" className="gap-2">
-									<MagnifyingGlassIcon />
-									Get recipe
-								</Button>
-							</Form>
-						</div>
-					</DialogDescription>
+					<div className="flex flex-col gap-2">
+						<Form
+							method="GET"
+							action="/recipes?index"
+							className="grid grid-cols-[1fr_min-content] gap-3"
+						>
+							<Label htmlFor="recipeUrl" className="sr-only">
+								Add a new recipe
+							</Label>
+							<Input
+								type="text"
+								autoFocus
+								id="recipeUrl"
+								name="recipeUrl"
+								placeholder="https://example.com/really-good-tacos"
+								className="placeholder:text-gray-400"
+							/>
+							<Button type="submit" className="gap-2">
+								<MagnifyingGlassIcon />
+								Get recipe
+							</Button>
+						</Form>
+					</div>
 				</DialogHeader>
 			</DialogContent>
 		</Dialog>

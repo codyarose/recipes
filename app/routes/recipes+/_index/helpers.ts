@@ -86,7 +86,10 @@ function createTextParser(selector: string): Parser {
 export async function getRecipeFromUrl(url: string) {
 	const response = await fetch(url)
 	if (!response.ok) {
-		throw new Response('Failed to fetch recipe', { status: 404 })
+		throw new Response('Failed to fetch recipe', {
+			status: 404,
+			statusText: 'Failed to fetch recipe',
+		})
 	}
 	const page = await parseResponse(response, {
 		script: mergeParsers(
@@ -98,7 +101,6 @@ export async function getRecipeFromUrl(url: string) {
 	if (!schema.success) {
 		throw new Response('Invalid JSON-LD', { status: 400 })
 	}
-	console.log(JSON.parse(page.script ?? 'null'))
 	const recipe = findRecipe(schema.data)
 	const article = findArticle(schema.data)
 	const organization = findOrganization(schema.data)
@@ -136,8 +138,9 @@ function formatDuration(isoString: string) {
 }
 
 function formatDurationLabel(duration: Duration) {
-	const hours = duration.hours()
-	const minutes = duration.minutes()
+	const totalMinutes = duration.asMinutes()
+	const hours = Math.floor(totalMinutes / 60)
+	const minutes = totalMinutes % 60
 	const parts = [
 		hours > 0 ? `${hours} hr${hours > 1 ? 's' : ''}` : '',
 		minutes > 0 ? `${minutes} min${minutes > 1 ? 's' : ''}` : '',

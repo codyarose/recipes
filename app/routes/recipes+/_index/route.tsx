@@ -1,39 +1,86 @@
 import { LoaderFunctionArgs, json, redirect } from '@remix-run/cloudflare'
-import { ClientActionFunctionArgs, Form, useLoaderData } from '@remix-run/react'
+import {
+	ClientActionFunctionArgs,
+	Form,
+	useLoaderData,
+	useSearchParams,
+} from '@remix-run/react'
 import { z } from 'zod'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { checkUrl, getRecipeFromUrl } from './helpers'
-import { formatRecipeId, withTimeout } from '~/utils/misc'
+import { TimeoutError, formatRecipeId, withTimeout } from '~/utils/misc'
 import { MagnifyingGlassIcon } from '@radix-ui/react-icons'
 import { RecipeCard } from '~/components/RecipeCard'
 import { parseWithZod } from '@conform-to/zod'
 import localforage from 'localforage'
 import { zSavedRecipe } from '~/schema'
+import { tempRecipes } from '~/utils/temp'
+import { GeneralErrorBoundary } from '~/components/GeneralErrorBoundary'
+import { getFormProps, getInputProps, useForm } from '@conform-to/react'
+import { ErrorList } from '~/components/ErrorList'
 
 export async function loader({ request }: LoaderFunctionArgs) {
 	const url = new URL(request.url)
-	const recipeUrlParam = url.searchParams.get('recipeUrl')
-	if (!recipeUrlParam) {
-		return json(null)
-	}
-	const recipeUrl = z
-		.string()
-		.url({ message: 'Invalid recipe URL' })
-		.safeParse(decodeURIComponent(recipeUrlParam))
+	const submission = parseWithZod(url.searchParams, {
+		schema: z.object({
+			recipeUrl: z.string().url({ message: 'Invalid recipe URL' }).optional(),
+		}),
+	})
 
-	if (!recipeUrl.success) {
-		throw new Response('Invalid recipe URL', { status: 400 })
-	}
-	const isWorkingUrl = await withTimeout(checkUrl(recipeUrl.data), 5000)
-
-	if (!isWorkingUrl) {
-		throw new Response('Invalid recipe URL', { status: 400 })
+	if (submission.status !== 'success') {
+		return json({ submission: submission.reply(), data: null }, { status: 400 })
 	}
 
-	const { recipe, organization } = await getRecipeFromUrl(recipeUrl.data)
-	return json({ recipe, organization } as const)
+	if (!submission.value.recipeUrl) {
+		return json({ submission, data: null } as const)
+	}
+
+	try {
+		const isWorkingUrl = await withTimeout(
+			checkUrl(submission.value.recipeUrl),
+			5000,
+		)
+		if (!isWorkingUrl) {
+			return json(
+				{
+					submission: submission.reply({
+						fieldErrors: { recipeUrl: ['Invalid recipe URL'] },
+					}),
+					data: null,
+				},
+				{ status: 400 },
+			)
+		}
+		// const { recipe, organization } = tempRecipes[1]
+		const { recipe, organization } = await getRecipeFromUrl(
+			submission.value.recipeUrl,
+		)
+		return json({ submission, data: { recipe, organization } } as const)
+	} catch (error) {
+		if (error instanceof TimeoutError) {
+			return json(
+				{
+					submission: submission.reply({
+						fieldErrors: { recipeUrl: ['Unable to fetch recipe from URL'] },
+					}),
+					data: null,
+				},
+				{ status: 400 },
+			)
+		}
+
+		if (error instanceof Response) {
+			throw error
+		}
+
+		if (error instanceof Error) {
+			throw new Response(error.message, { status: 500 })
+		}
+		console.error('Unknown error', error)
+		throw new Response('Unknown error', { status: 500 })
+	}
 }
 
 const actionSchema = z.discriminatedUnion('_action', [
@@ -80,31 +127,12 @@ export async function clientAction({ request }: ClientActionFunctionArgs) {
 }
 
 export default function RecipesIndex() {
-	const data = useLoaderData<typeof loader>()
+	const { data } = useLoaderData<typeof loader>()
 
 	return (
-		<div className="container relative flex flex-col gap-12 pb-12 pt-6">
+		<div className="container relative flex flex-col gap-4 pb-12 pt-6">
 			<div className="flex flex-col gap-2">
-				<Form
-					method="GET"
-					className="grid grid-cols-[1fr_min-content] grid-rows-2 gap-3"
-				>
-					<Label htmlFor="recipeUrl" className="col-span-full flex-1">
-						<h1 className="text-3xl">Add a new recipe</h1>
-					</Label>
-					<Input
-						type="text"
-						autoFocus
-						id="recipeUrl"
-						name="recipeUrl"
-						placeholder="https://example.com/really-good-tacos"
-						className="placeholder:text-gray-400"
-					/>
-					<Button type="submit" className="gap-2">
-						<MagnifyingGlassIcon />
-						Get recipe
-					</Button>
-				</Form>
+				<GetRecipeForm />
 			</div>
 
 			{data ? (
@@ -129,6 +157,82 @@ export default function RecipesIndex() {
 					</Form>
 				</div>
 			) : null}
+		</div>
+	)
+}
+
+function GetRecipeForm() {
+	const [searchParams] = useSearchParams()
+	const lastResult = useLoaderData<typeof loader>()
+	const [form, fields] = useForm({
+		lastResult: lastResult.submission,
+		shouldValidate: 'onSubmit',
+		shouldRevalidate: 'onSubmit',
+		defaultValue: { recipeUrl: searchParams.get('recipeUrl') ?? '' },
+	})
+
+	return (
+		<Form
+			method="GET"
+			action="/recipes?index"
+			{...getFormProps(form)}
+			className="flex flex-col gap-3"
+		>
+			<Label htmlFor={fields.recipeUrl.id} className="col-span-full flex-1">
+				<h1 className="text-3xl">Add a new recipe</h1>
+			</Label>
+
+			<div className="grid grid-cols-[1fr_min-content] gap-x-2">
+				<Input
+					autoFocus
+					{...getInputProps(fields.recipeUrl, { type: 'text' })}
+					placeholder="https://example.com/really-good-tacos"
+					className="placeholder:text-gray-400"
+				/>
+				<Button type="submit" className="gap-2">
+					<MagnifyingGlassIcon />
+					Get recipe
+				</Button>
+				<div className="col-span-full min-h-8 px-4 pb-2 pt-1">
+					{fields.recipeUrl.errors ? (
+						<ErrorList
+							id={fields.recipeUrl.errorId}
+							errors={fields.recipeUrl.errors}
+						/>
+					) : null}
+				</div>
+			</div>
+		</Form>
+	)
+}
+
+export function ErrorBoundary() {
+	return (
+		<div className="container relative flex flex-col gap-4 pb-12 pt-6">
+			<Form
+				method="GET"
+				action="/recipes?index"
+				className="flex flex-col gap-3"
+			>
+				<Label htmlFor="recipeUrl" className="col-span-full flex-1">
+					<h1 className="text-3xl">Add a new recipe</h1>
+				</Label>
+
+				<div className="grid grid-cols-[1fr_min-content] gap-x-2">
+					<Input
+						autoFocus
+						type="text"
+						placeholder="https://example.com/really-good-tacos"
+						className="placeholder:text-gray-400"
+					/>
+					<Button type="submit" className="gap-2">
+						<MagnifyingGlassIcon />
+						Get recipe
+					</Button>
+					<div className="col-span-full min-h-8 px-4 pb-2 pt-1" />
+				</div>
+			</Form>
+			<GeneralErrorBoundary />
 		</div>
 	)
 }

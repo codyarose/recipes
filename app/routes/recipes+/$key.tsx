@@ -34,7 +34,7 @@ export async function clientAction({ request }: ClientActionFunctionArgs) {
 	const recipeId = z.string().parse(formData.get('recipeId'))
 	await localforage.removeItem(recipeId)
 
-	return redirect('/')
+	return redirect('/recipes')
 }
 
 export default function Recipe() {

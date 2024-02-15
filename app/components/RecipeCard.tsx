@@ -23,7 +23,7 @@ export function RecipeCard({
 					<Link
 						to={organization.url}
 						target="_blank"
-						className="text-muted-foreground text-sm hover:underline"
+						className="text-sm text-muted-foreground hover:underline"
 					>
 						{organization.name}
 					</Link>
@@ -40,6 +40,27 @@ export function RecipeCard({
 			</CardHeader>
 
 			<CardContent className="flex flex-col gap-6">
+				<div className="flex gap-3">
+					{recipe.prepTime ? (
+						<div>
+							<h4 className="font-medium">Prep Time</h4>
+							<span>{recipe.prepTime.label}</span>
+						</div>
+					) : null}
+					{recipe.cookTime ? (
+						<div>
+							<h4 className="font-medium">Cook Time</h4>
+							<span>{recipe.cookTime.label}</span>
+						</div>
+					) : null}
+					{recipe.totalTime ? (
+						<div>
+							<h4 className="font-medium">Total Time</h4>
+							<span>{recipe.totalTime.label}</span>
+						</div>
+					) : null}
+				</div>
+
 				<div className="flex flex-col gap-3">
 					<h4 className="font-medium">Ingredients</h4>
 					<ul className="list-inside list-disc text-sm">
@@ -68,7 +89,7 @@ export function RecipeCard({
 				<Link
 					to={recipe.sourceUrl}
 					target="_blank"
-					className="text-muted-foreground text-sm hover:underline"
+					className="text-sm text-muted-foreground hover:underline"
 				>
 					Source
 				</Link>
