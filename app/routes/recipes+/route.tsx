@@ -70,13 +70,13 @@ export default function Recipes() {
 				<div className="flex flex-col gap-3 pb-3 pt-16 md:pt-3">
 					<NavLink
 						to="/recipes"
-						className="text-slate-700 hover:text-slate-900"
+						className="text-xl text-slate-700 hover:text-slate-900"
 					>
 						Recipes
 					</NavLink>
 
 					<NewRecipeDialog onSubmit={() => setIsSidebarOpen(false)}>
-						<Button size="sm" className="justify-start gap-2">
+						<Button size="sm" className="h-7 justify-start gap-2">
 							<PlusCircledIcon />
 							New recipe
 						</Button>
@@ -119,7 +119,7 @@ export default function Recipes() {
 						onMouseDown={e => {
 							setIsSidebarOpen(!isSidebarOpen)
 						}}
-						className="text-muted-foreground transition-colors hover:text-black md:hidden"
+						className="flex aspect-square w-7 items-center justify-center text-muted-foreground transition-colors hover:text-black md:hidden"
 					>
 						<ViewVerticalIcon />
 					</button>
