@@ -178,8 +178,8 @@ function GetRecipeForm() {
 			{...getFormProps(form)}
 			className="flex flex-col gap-3"
 		>
-			<Label htmlFor={fields.recipeUrl.id} className="col-span-full flex-1">
-				<h1 className="text-3xl">Add a new recipe</h1>
+			<Label htmlFor={fields.recipeUrl.id} className="sr-only">
+				Add a new recipe
 			</Label>
 
 			<div className="grid grid-cols-[1fr_min-content] gap-x-2">
@@ -214,8 +214,8 @@ export function ErrorBoundary() {
 				action="/recipes?index"
 				className="flex flex-col gap-3"
 			>
-				<Label htmlFor="recipeUrl" className="col-span-full flex-1">
-					<h1 className="text-3xl">Add a new recipe</h1>
+				<Label htmlFor="recipeUrl" className="sr-only">
+					Add a new recipe
 				</Label>
 
 				<div className="grid grid-cols-[1fr_min-content] gap-x-2">

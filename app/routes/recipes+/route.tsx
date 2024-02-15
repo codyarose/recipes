@@ -1,4 +1,8 @@
-import { MagnifyingGlassIcon, PlusCircledIcon } from '@radix-ui/react-icons'
+import {
+	MagnifyingGlassIcon,
+	PlusCircledIcon,
+	ViewVerticalIcon,
+} from '@radix-ui/react-icons'
 import {
 	ClientLoaderFunctionArgs,
 	Form,
@@ -9,7 +13,13 @@ import {
 	useNavigation,
 } from '@remix-run/react'
 import localforage from 'localforage'
-import { PropsWithChildren, useEffect, useState } from 'react'
+import {
+	PropsWithChildren,
+	RefObject,
+	useEffect,
+	useRef,
+	useState,
+} from 'react'
 import { Button } from '~/components/ui/button'
 import {
 	Dialog,
@@ -23,6 +33,8 @@ import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { zSavedRecipe } from '~/schema'
 import { zodFilteredArray } from '~/utils/misc'
+import { useRecipeClientLoader } from './$key'
+import { twMerge } from 'tailwind-merge'
 
 export async function clientLoader({}: ClientLoaderFunctionArgs) {
 	const keys = await localforage.keys()
@@ -41,11 +53,21 @@ export function HydrateFallback() {
 
 export default function Recipes() {
 	const { savedRecipes } = useLoaderData<typeof clientLoader>()
+	const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+	const sidebarRef = useRef<HTMLDivElement>(null)
+
+	useOnClickOutside(sidebarRef, () => setIsSidebarOpen(false))
 
 	return (
-		<div className="relative grid grid-cols-[min-content_1fr]">
-			<div className="sticky left-0 top-0 flex h-dvh min-w-60 flex-col overflow-y-auto border-r px-3 py-2">
-				<div className="flex flex-col gap-3 py-3">
+		<div className="relative grid min-h-dvh grid-cols-1 md:grid-cols-[min-content_1fr]">
+			<div
+				ref={sidebarRef}
+				className={twMerge(
+					'fixed top-0 z-10 flex h-dvh min-w-72 max-w-72 flex-col overflow-y-auto border-r bg-white px-3 transition-transform md:sticky md:translate-x-0',
+					isSidebarOpen ? 'block translate-x-0' : '-translate-x-72',
+				)}
+			>
+				<div className="flex flex-col gap-3 pb-3 pt-16 md:pt-3">
 					<NavLink
 						to="/recipes"
 						className="text-slate-700 hover:text-slate-900"
@@ -53,7 +75,7 @@ export default function Recipes() {
 						Recipes
 					</NavLink>
 
-					<NewRecipeDialog>
+					<NewRecipeDialog onSubmit={() => setIsSidebarOpen(false)}>
 						<Button size="sm" className="justify-start gap-2">
 							<PlusCircledIcon />
 							New recipe
@@ -84,15 +106,48 @@ export default function Recipes() {
 					))}
 				</ul>
 			</div>
+			<div
+				className={twMerge(
+					'absolute inset-0 z-[9] bg-secondary/15',
+					isSidebarOpen ? 'block' : 'hidden',
+				)}
+			/>
 
 			<div>
+				<div className="container sticky left-0 right-0 top-0 z-50 flex gap-4 border-b bg-white/85 py-3 pl-3 backdrop-blur-sm md:pl-8">
+					<button
+						onMouseDown={e => {
+							setIsSidebarOpen(!isSidebarOpen)
+						}}
+						className="text-muted-foreground transition-colors hover:text-black md:hidden"
+					>
+						<ViewVerticalIcon />
+					</button>
+
+					<TopBarContent />
+				</div>
+
 				<Outlet />
 			</div>
 		</div>
 	)
 }
 
-function NewRecipeDialog({ children }: PropsWithChildren<{}>) {
+function TopBarContent() {
+	const data = useRecipeClientLoader()
+	const title = data?.recipe?.name ?? 'Add a new recipe'
+
+	return (
+		<div>
+			<h1 className="line-clamp-1 text-xl font-medium">{title}</h1>
+		</div>
+	)
+}
+
+function NewRecipeDialog({
+	children,
+	onSubmit,
+}: PropsWithChildren<{ onSubmit: () => void }>) {
 	const [isOpen, setIsOpen] = useState(false)
 	const transition = useNavigation()
 	useEffect(() => {
@@ -112,6 +167,7 @@ function NewRecipeDialog({ children }: PropsWithChildren<{}>) {
 						<Form
 							method="GET"
 							action="/recipes?index"
+							onSubmit={onSubmit}
 							className="grid grid-cols-[1fr_min-content] gap-3"
 						>
 							<Label htmlFor="recipeUrl" className="sr-only">
@@ -135,4 +191,25 @@ function NewRecipeDialog({ children }: PropsWithChildren<{}>) {
 			</DialogContent>
 		</Dialog>
 	)
+}
+
+function useOnClickOutside(
+	ref: RefObject<HTMLElement>,
+	handler: (event: MouseEvent | TouchEvent) => void,
+) {
+	useEffect(() => {
+		const listener = (event: MouseEvent | TouchEvent) => {
+			if (!ref.current || ref.current.contains(event.target as Node)) {
+				return
+			}
+			handler(event)
+		}
+
+		document.addEventListener('mousedown', listener)
+		document.addEventListener('touchstart', listener)
+		return () => {
+			document.removeEventListener('mousedown', listener)
+			document.removeEventListener('touchstart', listener)
+		}
+	}, [ref, handler])
 }

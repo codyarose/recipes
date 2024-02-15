@@ -5,6 +5,7 @@ import {
 	json,
 	redirect,
 	useLoaderData,
+	useRouteLoaderData,
 } from '@remix-run/react'
 import localforage from 'localforage'
 import { z } from 'zod'
@@ -27,6 +28,9 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
 		recipe: savedRecipe.data.recipe,
 		organization: savedRecipe.data.organization,
 	} as const)
+}
+export function useRecipeClientLoader() {
+	return useRouteLoaderData<typeof clientLoader>('routes/recipes+/$key')
 }
 
 export async function clientAction({ request }: ClientActionFunctionArgs) {
