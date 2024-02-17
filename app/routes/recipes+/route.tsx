@@ -1,15 +1,22 @@
 import { MagnifyingGlassIcon, PlusCircledIcon } from '@radix-ui/react-icons'
 import {
+	ClientActionFunctionArgs,
 	ClientLoaderFunctionArgs,
 	Outlet,
 	json,
 	useLoaderData,
 	useNavigate,
+	useSubmit,
 } from '@remix-run/react'
 import localforage from 'localforage'
 import { useState } from 'react'
 import { zSavedRecipe } from '~/schema'
-import { zodFilteredArray } from '~/utils/misc'
+import {
+	TimeoutError,
+	formatRecipeId,
+	withTimeout,
+	zodFilteredArray,
+} from '~/utils/misc'
 import { useRecipeClientLoader } from './$key'
 import {
 	CommandDialog,
@@ -22,9 +29,19 @@ import {
 } from '~/components/ui/command'
 import { z } from 'zod'
 import { Button } from '~/components/ui/button'
-import { useRecipeIndexLoader } from './_index/route'
+import { tempRecipes } from '~/utils/temp'
+import { ActionFunctionArgs, redirect } from '@remix-run/cloudflare'
+import { parseWithZod } from '@conform-to/zod'
+import { checkUrl, getRecipeFromUrl } from '~/utils/parse-schema-graph'
+import { GeneralErrorBoundary } from '~/components/GeneralErrorBoundary'
 
 export async function clientLoader({}: ClientLoaderFunctionArgs) {
+	// if (import.meta.env.MODE === 'development') {
+	// 	tempRecipes.forEach(async item => {
+	// 		await localforage.setItem(item.id, item)
+	// 	})
+	// }
+
 	const keys = await localforage.keys()
 	const savedRecipes = await Promise.all(
 		keys.map(key => localforage.getItem(key)),
@@ -35,28 +52,84 @@ export async function clientLoader({}: ClientLoaderFunctionArgs) {
 	} as const)
 }
 
+export async function action({ request }: ActionFunctionArgs) {
+	const formData = await request.formData()
+	const submission = parseWithZod(formData, {
+		schema: z.object({
+			recipeUrl: z.string().url({ message: 'Invalid recipe URL' }),
+		}),
+	})
+
+	if (submission.status !== 'success') {
+		return json({ submission: submission.reply(), data: null }, { status: 400 })
+	}
+
+	try {
+		const isWorkingUrl = await withTimeout(
+			checkUrl(submission.value.recipeUrl),
+			5000,
+		)
+		if (!isWorkingUrl) {
+			return json(
+				{
+					submission: submission.reply({
+						fieldErrors: { recipeUrl: ['Invalid recipe URL'] },
+					}),
+					data: null,
+				},
+				{ status: 400 },
+			)
+		}
+		const { recipe, organization } = await getRecipeFromUrl(
+			submission.value.recipeUrl,
+		)
+		return json({ submission, data: { recipe, organization } } as const)
+	} catch (error) {
+		if (error instanceof Response) throw error
+		if (error instanceof Error)
+			throw new Response(error.message, { status: 500 })
+		if (error instanceof TimeoutError) {
+			return json(
+				{
+					submission: submission.reply({
+						fieldErrors: { recipeUrl: ['Unable to fetch recipe from URL'] },
+					}),
+					data: null,
+				},
+				{ status: 500 },
+			)
+		}
+
+		console.error('Unknown error', error)
+		throw new Response('Unknown error', { status: 500 })
+	}
+}
+
+export async function clientAction({ serverAction }: ClientActionFunctionArgs) {
+	const { data, submission } = await serverAction<typeof action>()
+	if (!data) {
+		return { data, submission }
+	}
+	const id = formatRecipeId(data)
+	await localforage.setItem(id, { id, ...data })
+	return redirect(`/recipes/${id}`)
+}
+
 export function HydrateFallback() {
 	return null
 }
 
 export default function Recipes() {
+	const submit = useSubmit()
 	const { savedRecipes } = useLoaderData<typeof clientLoader>()
 	const isRecipesEmpty = savedRecipes.length === 0
 	const navigate = useNavigate()
-	const fetchedRecipeSchema = useRecipeIndexLoader()
 	const recipeData = useRecipeClientLoader()
-	const hasRecipeSchemaData =
-		fetchedRecipeSchema?.submission.status !== 'error' &&
-		Boolean(fetchedRecipeSchema?.data?.recipe)
 	const [isCommandOpen, setIsCommandOpen] = useState(false)
 	const [search, setSearch] = useState('')
 	const isSearchUrl = z.string().url().safeParse(search).success
 	const currentRecipeId = recipeData?.id
-	const isCommandDialogOpen = Boolean(recipeData)
-		? isCommandOpen
-		: hasRecipeSchemaData
-			? isCommandOpen
-			: true
+	const isCommandDialogOpen = !recipeData || isCommandOpen
 
 	return (
 		<div className="grid">
@@ -83,7 +156,6 @@ export default function Recipes() {
 				open={isCommandDialogOpen}
 				onOpenChange={setIsCommandOpen}
 				shouldFilter={!isSearchUrl}
-				modal
 			>
 				<CommandInput
 					placeholder={
@@ -102,7 +174,8 @@ export default function Recipes() {
 								<CommandItem
 									value={search}
 									onSelect={val => {
-										navigate(`/recipes?recipeUrl=${encodeURIComponent(val)}`)
+										submit({ recipeUrl: val }, { method: 'POST' })
+										setSearch('')
 										setIsCommandOpen(false)
 									}}
 									className="line-clamp-1 flex flex-nowrap gap-2 text-nowrap"
@@ -147,6 +220,14 @@ function TopBarContent() {
 	return (
 		<div>
 			<h1 className="line-clamp-1 text-xl font-medium">{title}</h1>
+		</div>
+	)
+}
+
+export function ErrorBoundary() {
+	return (
+		<div className="container pb-12 pt-6">
+			<GeneralErrorBoundary />
 		</div>
 	)
 }
