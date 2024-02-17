@@ -3,7 +3,7 @@ import {
 	ClientActionFunctionArgs,
 	Form,
 	useLoaderData,
-	useSearchParams,
+	useRouteLoaderData,
 } from '@remix-run/react'
 import { z } from 'zod'
 import { Button } from '~/components/ui/button'
@@ -18,8 +18,6 @@ import localforage from 'localforage'
 import { zSavedRecipe } from '~/schema'
 import { tempRecipes } from '~/utils/temp'
 import { GeneralErrorBoundary } from '~/components/GeneralErrorBoundary'
-import { getFormProps, getInputProps, useForm } from '@conform-to/react'
-import { ErrorList } from '~/components/ErrorList'
 
 export async function loader({ request }: LoaderFunctionArgs) {
 	const url = new URL(request.url)
@@ -83,6 +81,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
 	}
 }
 
+export function useRecipeIndexLoader() {
+	return useRouteLoaderData<typeof loader>('routes/recipes+/_index/route')
+}
+
 const actionSchema = z.discriminatedUnion('_action', [
 	z.object({
 		_action: z.literal('ADD'),
@@ -130,11 +132,7 @@ export default function RecipesIndex() {
 	const { data } = useLoaderData<typeof loader>()
 
 	return (
-		<div className="container relative flex flex-col gap-4 pb-12 pt-6">
-			<div className="flex flex-col gap-2">
-				<GetRecipeForm />
-			</div>
-
+		<div className="container pb-12 pt-6">
 			{data ? (
 				<div className="flex flex-col gap-6">
 					<RecipeCard recipe={data.recipe} organization={data.organization} />
@@ -158,51 +156,6 @@ export default function RecipesIndex() {
 				</div>
 			) : null}
 		</div>
-	)
-}
-
-function GetRecipeForm() {
-	const [searchParams] = useSearchParams()
-	const lastResult = useLoaderData<typeof loader>()
-	const [form, fields] = useForm({
-		lastResult: lastResult.submission,
-		shouldValidate: 'onSubmit',
-		shouldRevalidate: 'onSubmit',
-		defaultValue: { recipeUrl: searchParams.get('recipeUrl') ?? '' },
-	})
-
-	return (
-		<Form
-			method="GET"
-			action="/recipes?index"
-			{...getFormProps(form)}
-			className="flex flex-col gap-3"
-		>
-			<Label htmlFor={fields.recipeUrl.id} className="sr-only">
-				Add a new recipe
-			</Label>
-
-			<div className="grid grid-cols-[1fr_min-content] gap-x-2">
-				<Input
-					autoFocus
-					{...getInputProps(fields.recipeUrl, { type: 'text' })}
-					placeholder="https://example.com/really-good-tacos"
-					className="placeholder:text-gray-400"
-				/>
-				<Button type="submit" className="gap-2">
-					<MagnifyingGlassIcon />
-					Get recipe
-				</Button>
-				<div className="col-span-full min-h-8 px-4 pb-2 pt-1">
-					{fields.recipeUrl.errors ? (
-						<ErrorList
-							id={fields.recipeUrl.errorId}
-							errors={fields.recipeUrl.errors}
-						/>
-					) : null}
-				</div>
-			</div>
-		</Form>
 	)
 }
 

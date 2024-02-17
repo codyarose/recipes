@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { zSavedRecipe } from '~/schema'
+import { useEffect, useState } from 'react'
 
 export function getErrorMessage(error: unknown) {
 	if (typeof error === 'string') return error
@@ -61,4 +62,48 @@ export async function withTimeout<T>(
 			),
 		),
 	]).finally(() => clearTimeout(id))
+}
+
+const getInitialState = (query: string, defaultState?: boolean) => {
+	// Prevent a React hydration mismatch when a default value is provided by not defaulting to window.matchMedia(query).matches.
+	if (defaultState !== undefined) {
+		return defaultState
+	}
+
+	if (typeof window !== 'undefined') {
+		return window.matchMedia(query).matches
+	}
+
+	// A default value has not been provided, and you are rendering on the server, warn of a possible hydration mismatch when defaulting to false.
+	if (process.env.NODE_ENV !== 'production') {
+		console.warn(
+			'`useMedia` When server side rendering, defaultState should be defined to prevent a hydration mismatches.',
+		)
+	}
+
+	return false
+}
+
+export const useMedia = (query: string, defaultState?: boolean) => {
+	const [state, setState] = useState(getInitialState(query, defaultState))
+	useEffect(() => {
+		let mounted = true
+		const mql = window.matchMedia(query)
+		const onChange = () => {
+			if (!mounted) {
+				return
+			}
+			setState(!!mql.matches)
+		}
+
+		mql.addEventListener('change', onChange)
+		setState(mql.matches)
+
+		return () => {
+			mounted = false
+			mql.removeEventListener('change', onChange)
+		}
+	}, [query])
+
+	return state
 }

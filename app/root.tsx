@@ -13,6 +13,7 @@ export default function App() {
 	return (
 		<Document>
 			<Outlet />
+			<footer className="h-20 w-full" />
 		</Document>
 	)
 }
@@ -26,7 +27,7 @@ function Document({ children }: PropsWithChildren<{}>) {
 				<Meta />
 				<Links />
 			</head>
-			<body>
+			<body className="grid min-h-dvh grid-rows-[1fr_min-content]">
 				{children}
 				<ScrollRestoration />
 				<Scripts />
