@@ -29,7 +29,7 @@ function Document({ children }: PropsWithChildren<{}>) {
 			</head>
 			<body className="grid min-h-dvh grid-rows-[1fr_min-content]">
 				{children}
-				<ScrollRestoration />
+				<ScrollRestoration getKey={location => location.pathname} />
 				<Scripts />
 			</body>
 		</html>
