@@ -129,7 +129,8 @@ export async function getRecipeFromUrl(url: string) {
 	})
 }
 
-function formatDuration(isoString: string) {
+function formatDuration(isoString: string | undefined) {
+	if (!isoString) return null
 	const duration = formatISODuration(isoString)
 	return {
 		label: formatDurationLabel(duration),

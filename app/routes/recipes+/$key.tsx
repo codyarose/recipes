@@ -7,18 +7,18 @@ import {
 	useLoaderData,
 	useRouteLoaderData,
 } from '@remix-run/react'
-import localforage from 'localforage'
 import { z } from 'zod'
 import { RecipeCard } from '~/components/RecipeCard'
 import { Button } from '~/components/ui/button'
 import { zSavedRecipe } from '~/schema'
+import { recipeStore } from '~/services/localforage.client'
 
 export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
 	const key = z.string().safeParse(params.key)
 	if (!key.success) throw new Response('Invalid recipe key', { status: 400 })
 
 	const savedRecipe = zSavedRecipe.safeParse(
-		await localforage.getItem(key.data),
+		await recipeStore.getItem(key.data),
 	)
 	if (!savedRecipe.success)
 		throw new Response('Recipe not found', { status: 404 })
@@ -36,7 +36,7 @@ export function useRecipeClientLoader() {
 export async function clientAction({ request }: ClientActionFunctionArgs) {
 	const formData = await request.formData()
 	const recipeId = z.string().parse(formData.get('recipeId'))
-	await localforage.removeItem(recipeId)
+	await recipeStore.removeItem(recipeId)
 
 	return redirect('/recipes')
 }
