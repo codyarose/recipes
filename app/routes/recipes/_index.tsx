@@ -20,7 +20,6 @@ import {
 	withTimeout,
 	zodFilteredArray,
 } from '~/utils/misc'
-import { useRecipeClientLoader } from './$key'
 import {
 	CommandDialog,
 	CommandEmpty,
@@ -38,6 +37,7 @@ import { parseWithZod } from '@conform-to/zod'
 import { checkUrl, getRecipeFromUrl } from '~/utils/parse-schema-graph'
 import { GeneralErrorBoundary } from '~/components/GeneralErrorBoundary'
 import { recipeStore, tabStore } from '~/services/localforage.client'
+import { useRecipeClientLoader } from '../recipes.$key'
 
 export async function clientLoader({}: ClientLoaderFunctionArgs) {
 	// if (import.meta.env.MODE === 'development') {

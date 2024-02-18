@@ -30,7 +30,7 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
 	} as const)
 }
 export function useRecipeClientLoader() {
-	return useRouteLoaderData<typeof clientLoader>('routes/recipes+/$key')
+	return useRouteLoaderData<typeof clientLoader>('routes/recipes.$key')
 }
 
 export async function clientAction({ request }: ClientActionFunctionArgs) {
