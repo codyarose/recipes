@@ -41,6 +41,7 @@ import { GeneralErrorBoundary } from '~/components/GeneralErrorBoundary'
 import { useRecipeClientLoader } from '../recipes.$key'
 import { Recipe } from '~/services/localforage/recipe'
 import { Tab } from '~/services/localforage/tab'
+import { actionSchema } from './validators'
 
 export async function clientLoader({}: ClientLoaderFunctionArgs) {
 	// if (import.meta.env.MODE === 'development') {
@@ -62,22 +63,6 @@ export async function clientLoader({}: ClientLoaderFunctionArgs) {
 	} as const)
 }
 
-const actionSchema = z.discriminatedUnion('_action', [
-	z.object({
-		_action: z.literal('add-recipe'),
-		recipeUrl: z.string().url({ message: 'Invalid recipe URL' }),
-	}),
-	z.object({
-		_action: z.literal('add-tab'),
-		id: z.string(),
-	}),
-	z.object({
-		_action: z.literal('remove-tab'),
-		id: z.string(),
-		currentTabId: z.string().nullable(),
-	}),
-])
-
 export async function action({ request }: ActionFunctionArgs) {
 	const formData = await request.formData()
 	const submission = parseWithZod(formData, {
@@ -85,97 +70,81 @@ export async function action({ request }: ActionFunctionArgs) {
 	})
 
 	if (submission.status !== 'success') {
-		return json(
-			{ submission: submission.reply(), data: null, _action: null },
-			{ status: 400 },
-		)
+		return json({ lastResult: submission.reply(), data: null } as const, {
+			status: submission.status === 'error' ? 400 : 200,
+		})
 	}
+
 	const { _action } = submission.value
 
-	if (_action === 'add-recipe') {
-		try {
-			const isWorkingUrl = await withTimeout(
-				checkUrl(submission.value.recipeUrl),
-				5000,
-			)
-			if (!isWorkingUrl) {
-				return json(
-					{
-						submission: submission.reply({
-							fieldErrors: { recipeUrl: ['Invalid recipe URL'] },
-						}),
-						data: null,
-						_action,
-					},
-					{ status: 400 },
+	try {
+		switch (_action) {
+			case 'add-recipe':
+				const isWorkingUrl = await withTimeout(
+					checkUrl(submission.value.recipeUrl),
+					5000,
 				)
-			}
-			const { recipe, organization } = await getRecipeFromUrl(
-				submission.value.recipeUrl,
-			)
-			return json({
-				submission,
-				data: { recipe, organization },
-				_action,
-			} as const)
-		} catch (error) {
-			if (error instanceof Response) throw error
-			if (error instanceof Error)
-				throw new Response(error.message, { status: 500 })
-			if (error instanceof TimeoutError) {
-				return json(
-					{
-						submission: submission.reply({
-							fieldErrors: { recipeUrl: ['Unable to fetch recipe from URL'] },
-						}),
-						data: null,
-						_action,
-					},
-					{ status: 500 },
+				if (!isWorkingUrl) {
+					throw new Error('Invalid recipe URL')
+				}
+				const { recipe, organization } = await getRecipeFromUrl(
+					submission.value.recipeUrl,
 				)
-			}
-
-			console.error('Unknown error', error)
-			throw new Response('Unknown error', { status: 500 })
+				return json({
+					lastResult: submission.reply(),
+					data: { recipe, organization },
+				} as const)
+			case 'add-tab':
+			case 'remove-tab':
+				return json({ lastResult: submission.reply(), data: null } as const)
+			default:
+				throw new Error(`Unknown action: ${_action}`)
 		}
-	} else if (_action === 'add-tab') {
-		return json({ submission, data: null, _action } as const)
-	} else if (_action === 'remove-tab') {
-		return json({ submission, data: null, _action } as const)
+	} catch (error) {
+		if (error instanceof Response) throw error
+		const message = error instanceof Error ? error.message : 'Unknown error'
+		const status = error instanceof TimeoutError ? 500 : 400
+		return json(
+			{
+				lastResult: submission.reply({
+					fieldErrors: { recipeUrl: [message] },
+				}),
+				data: null,
+			} as const,
+			{ status },
+		)
 	}
-
-	throw new Response(`Unknown action: ${_action}`, { status: 400 })
 }
 
 export async function clientAction({ serverAction }: ClientActionFunctionArgs) {
-	const { data, submission, _action } = await serverAction<typeof action>()
-	if (submission.status !== 'success') {
-		return { data, submission }
+	const { data, lastResult } = await serverAction<typeof action>()
+	if (lastResult.status !== 'success') {
+		return { data, lastResult }
 	}
 
+	const originalSubmission = actionSchema.parse(lastResult.initialValue)
+	const { _action } = originalSubmission
+
 	if (_action === 'add-recipe') {
-		if (!data) return { data, submission }
+		if (!data) return { data, lastResult }
 		const id = formatRecipeId(data)
 		const path = `/recipes/${id}`
 		await Recipe.create({ id, ...data })
 		await Tab.create({ id, path: path })
 		return redirect(path)
-	} else if (_action === 'add-tab' && submission.value._action === 'add-tab') {
-		const id = submission.value.id
+	} else if (_action === 'add-tab') {
+		const { id } = originalSubmission
 		const path = `/recipes/${id}`
 		await Tab.create({ id, path: path })
 		return redirect(path)
-	} else if (
-		_action === 'remove-tab' &&
-		submission.value._action === 'remove-tab'
-	) {
-		const currentTabId = submission.value.currentTabId
-		await Tab.remove(submission.value.id)
+	} else if (_action === 'remove-tab') {
+		const { id, currentTabId } = originalSubmission
+		await Tab.remove(id)
 		const remainingTabs = await Tab.list()
 		if (remainingTabs.length === 0) {
 			return redirect('/recipes') // Redirect to the recipes index if no tabs are left
 		}
-		if (submission.value.id !== currentTabId) {
+		if (id !== currentTabId) {
 			return null // No need to redirect if the removed tab is not the current tab
 		}
 		const previouslyActiveTab = remainingTabs.reduce((prev, current) =>
