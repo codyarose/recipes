@@ -9,7 +9,9 @@ import {
 	NavLink,
 	Outlet,
 	json,
+	useFetcher,
 	useLoaderData,
+	useParams,
 	useSubmit,
 } from '@remix-run/react'
 import { useState } from 'react'
@@ -36,32 +38,23 @@ import { ActionFunctionArgs, redirect } from '@remix-run/cloudflare'
 import { parseWithZod } from '@conform-to/zod'
 import { checkUrl, getRecipeFromUrl } from '~/utils/parse-schema-graph'
 import { GeneralErrorBoundary } from '~/components/GeneralErrorBoundary'
-import { recipeStore, tabStore } from '~/services/localforage.client'
 import { useRecipeClientLoader } from '../recipes.$key'
+import { Recipe } from '~/services/localforage/recipe'
+import { Tab } from '~/services/localforage/tab'
 
 export async function clientLoader({}: ClientLoaderFunctionArgs) {
 	// if (import.meta.env.MODE === 'development') {
 	// 	tempRecipes.forEach(async item => {
-	// 		await recipeStore.setItem(item.id, item)
+	// 		// @ts-expect-error temporary
+	// 		await Recipe.create(item)
 	// 	})
 	// }
 
-	const recipeKeys = await recipeStore.keys()
-	const savedRecipes = await Promise.all(
-		recipeKeys.map(key => recipeStore.getItem(key)),
-	)
-	const tabKeys = await tabStore.keys()
-	const tabs = await Promise.all(
-		tabKeys.map(async key => {
-			const tabData = await tabStore.getItem(key)
-			return {
-				...tabData,
-				name:
-					savedRecipes.find(recipe => recipe.id === tabData.id)?.recipe.name ??
-					'',
-			}
-		}),
-	)
+	const savedRecipes = await Recipe.list()
+	const tabs = (await Tab.list()).map(tab => ({
+		...tab,
+		name: savedRecipes.find(recipe => recipe.id === tab.id)?.recipe.name ?? '',
+	}))
 
 	return json({
 		savedRecipes: zodFilteredArray(zSavedRecipe).parse(savedRecipes),
@@ -81,6 +74,7 @@ const actionSchema = z.discriminatedUnion('_action', [
 	z.object({
 		_action: z.literal('remove-tab'),
 		id: z.string(),
+		currentTabId: z.string().nullable(),
 	}),
 ])
 
@@ -162,26 +156,32 @@ export async function clientAction({ serverAction }: ClientActionFunctionArgs) {
 	if (_action === 'add-recipe') {
 		if (!data) return { data, submission }
 		const id = formatRecipeId(data)
-		await recipeStore.setItem(id, { id, ...data })
-		await tabStore.setItem(id, {
-			id: id,
-			path: `/recipes/${id}`,
-		})
-		return redirect(`/recipes/${id}`)
+		const path = `/recipes/${id}`
+		await Recipe.create({ id, ...data })
+		await Tab.create({ id, path: path })
+		return redirect(path)
 	} else if (_action === 'add-tab' && submission.value._action === 'add-tab') {
 		const id = submission.value.id
-		await tabStore.setItem(id, {
-			id: id,
-			path: `/recipes/${id}`,
-		})
-		return redirect(`/recipes/${id}`)
+		const path = `/recipes/${id}`
+		await Tab.create({ id, path: path })
+		return redirect(path)
 	} else if (
 		_action === 'remove-tab' &&
 		submission.value._action === 'remove-tab'
 	) {
-		await tabStore.removeItem(submission.value.id)
-		// TODO use a fetcher to submit the action to avoid document reload when tab is removed
-		return null
+		const currentTabId = submission.value.currentTabId
+		await Tab.remove(submission.value.id)
+		const remainingTabs = await Tab.list()
+		if (remainingTabs.length === 0) {
+			return redirect('/recipes') // Redirect to the recipes index if no tabs are left
+		}
+		if (submission.value.id !== currentTabId) {
+			return null // No need to redirect if the removed tab is not the current tab
+		}
+		const previouslyActiveTab = remainingTabs.reduce((prev, current) =>
+			prev.lastVisitedTimestamp > current.lastVisitedTimestamp ? prev : current,
+		)
+		return redirect(previouslyActiveTab.path) // Redirect to the previously active tab
 	}
 }
 
@@ -191,6 +191,8 @@ export function HydrateFallback() {
 
 export default function Recipes() {
 	const submit = useSubmit()
+	const fetcher = useFetcher()
+	const params = useParams()
 	const { savedRecipes, tabs } = useLoaderData<typeof clientLoader>()
 	const isRecipesEmpty = savedRecipes.length === 0
 	const recipeData = useRecipeClientLoader()
@@ -215,19 +217,20 @@ export default function Recipes() {
 							>
 								{tab.name}
 							</NavLink>
-							<Button
-								size="icon"
-								variant="ghost"
-								className="z-10 h-4 w-4 hover:bg-black/5"
-								onClick={() =>
-									submit(
-										{ _action: 'remove-tab', id: tab.id },
-										{ method: 'POST' },
-									)
-								}
-							>
-								<Cross2Icon />
-							</Button>
+							<fetcher.Form method="POST" className="z-10">
+								<input type="hidden" name="id" value={tab.id} />
+								<input type="hidden" name="currentTabId" value={params.key} />
+								<Button
+									type="submit"
+									size="icon"
+									variant="ghost"
+									className="h-4 w-4 hover:bg-black/5"
+									name="_action"
+									value="remove-tab"
+								>
+									<Cross2Icon />
+								</Button>
+							</fetcher.Form>
 						</div>
 					))}
 				</div>
@@ -292,8 +295,6 @@ export default function Recipes() {
 									data-currently-selected={currentRecipeId === item.id}
 									onSelect={val => {
 										if (currentRecipeId === val) return
-										// tabStore.setItem(val, { id: val, path: `/recipes/${val}` })
-										// navigate(`/recipes/${val}`)
 										submit({ _action: 'add-tab', id: val }, { method: 'POST' })
 										setIsCommandOpen(false)
 									}}
@@ -306,17 +307,6 @@ export default function Recipes() {
 					) : null}
 				</CommandList>
 			</CommandDialog>
-		</div>
-	)
-}
-
-function TopBarContent() {
-	const data = useRecipeClientLoader()
-	const title = data?.recipe?.name ?? ''
-
-	return (
-		<div>
-			<h1 className="line-clamp-1 text-xl font-medium">{title}</h1>
 		</div>
 	)
 }

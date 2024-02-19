@@ -11,17 +11,18 @@ import { z } from 'zod'
 import { RecipeCard } from '~/components/RecipeCard'
 import { Button } from '~/components/ui/button'
 import { zSavedRecipe } from '~/schema'
-import { recipeStore } from '~/services/localforage.client'
+import { Recipe } from '~/services/localforage/recipe'
+import { Tab } from '~/services/localforage/tab'
 
 export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
 	const key = z.string().safeParse(params.key)
 	if (!key.success) throw new Response('Invalid recipe key', { status: 400 })
 
-	const savedRecipe = zSavedRecipe.safeParse(
-		await recipeStore.getItem(key.data),
-	)
+	const savedRecipe = zSavedRecipe.safeParse(await Recipe.fromId(key.data))
 	if (!savedRecipe.success)
 		throw new Response('Recipe not found', { status: 404 })
+
+	await Tab.updateLastVisitedTimestamp(savedRecipe.data.id)
 
 	return json({
 		id: savedRecipe.data.id,
@@ -36,12 +37,12 @@ export function useRecipeClientLoader() {
 export async function clientAction({ request }: ClientActionFunctionArgs) {
 	const formData = await request.formData()
 	const recipeId = z.string().parse(formData.get('recipeId'))
-	await recipeStore.removeItem(recipeId)
+	await Recipe.remove(recipeId)
 
 	return redirect('/recipes')
 }
 
-export default function Recipe() {
+export default function RecipeComponent() {
 	const { id, recipe, organization } = useLoaderData<typeof clientLoader>()
 
 	return (
