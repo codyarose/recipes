@@ -1,5 +1,6 @@
+import { Fragment } from 'react'
+import { Link } from '@remix-run/react'
 import { z } from 'zod'
-import { zSavedRecipe } from '~/schema'
 import {
 	Card,
 	CardContent,
@@ -9,8 +10,7 @@ import {
 	CardTitle,
 } from '~/components/ui/card'
 import { Separator } from '~/components/ui/separator'
-import { Fragment } from 'react'
-import { Link } from '@remix-run/react'
+import { zSavedRecipe } from '~/schema'
 
 export function RecipeCard({
 	recipe,

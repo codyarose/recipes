@@ -2,8 +2,8 @@ import { AppLoadContext, SessionStorage } from '@remix-run/cloudflare'
 import { users } from 'drizzle/users.sql'
 import { Authenticator } from 'remix-auth'
 import { GoogleStrategy } from 'remix-auth-google'
-import { sessionStorage } from './session.server'
 import { db } from './db.server'
+import { sessionStorage } from './session.server'
 
 type User = Pick<typeof users.$inferSelect, 'userId' | 'email' | 'username'>
 

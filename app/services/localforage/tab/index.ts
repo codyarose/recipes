@@ -1,8 +1,8 @@
-export * as Tab from './'
-
 import localforage from 'localforage'
 import { z } from 'zod'
 import { zod } from '~/utils/misc'
+
+export * as Tab from './'
 
 const tabStore = localforage.createInstance({ name: 'tab' })
 export const Info = z.object({

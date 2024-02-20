@@ -1,9 +1,9 @@
-export * as Recipe from './'
-
 import localforage from 'localforage'
 import { z } from 'zod'
 import { zSavedRecipe } from '~/schema'
 import { formatRecipeId, zod } from '~/utils/misc'
+
+export * as Recipe from './'
 
 const recipeStore = localforage.createInstance({ name: 'recipe' })
 export const Info = zSavedRecipe

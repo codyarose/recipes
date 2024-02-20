@@ -1,7 +1,7 @@
 import { NavLink, useFetcher, useLoaderData, useParams } from '@remix-run/react'
-import { clientLoader } from './_index'
-import { Button } from '~/components/ui/button'
 import { Cross2Icon } from '@radix-ui/react-icons'
+import { Button } from '~/components/ui/button'
+import { clientLoader } from './_index'
 
 export function TabList() {
 	const { tabs } = useLoaderData<typeof clientLoader>()

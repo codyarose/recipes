@@ -7,13 +7,13 @@ import {
 	useLoaderData,
 	useRouteLoaderData,
 } from '@remix-run/react'
+import { invariantResponse } from '@epic-web/invariant'
 import { z } from 'zod'
 import { RecipeCard } from '~/components/RecipeCard'
 import { Button } from '~/components/ui/button'
 import { zSavedRecipe } from '~/schema'
 import { Recipe } from '~/services/localforage/recipe'
 import { Tab } from '~/services/localforage/tab'
-import { invariantResponse } from '@epic-web/invariant'
 
 export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
 	const key = z.string().safeParse(params.key)

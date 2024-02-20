@@ -1,7 +1,6 @@
-import { useLoaderData, useSubmit } from '@remix-run/react'
-import { clientLoader } from './_index'
-import { useRecipeClientLoader } from '../recipes.$key'
 import { ComponentProps, useState } from 'react'
+import { useLoaderData, useSubmit } from '@remix-run/react'
+import { MagnifyingGlassIcon, PlusCircledIcon } from '@radix-ui/react-icons'
 import { z } from 'zod'
 import { Button } from '~/components/ui/button'
 import {
@@ -13,7 +12,8 @@ import {
 	CommandList,
 	CommandSeparator,
 } from '~/components/ui/command'
-import { MagnifyingGlassIcon, PlusCircledIcon } from '@radix-ui/react-icons'
+import { useRecipeClientLoader } from '../recipes.$key'
+import { clientLoader } from './_index'
 
 export function CommandDialog() {
 	const { savedRecipes } = useLoaderData<typeof clientLoader>()

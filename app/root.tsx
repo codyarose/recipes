@@ -1,3 +1,4 @@
+import { PropsWithChildren } from 'react'
 import {
 	Links,
 	Meta,
@@ -5,9 +6,8 @@ import {
 	Scripts,
 	ScrollRestoration,
 } from '@remix-run/react'
-import './tailwind.css'
-import { PropsWithChildren } from 'react'
 import { GeneralErrorBoundary } from './components/GeneralErrorBoundary'
+import './tailwind.css'
 
 export default function App() {
 	return (

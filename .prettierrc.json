@@ -17,6 +17,15 @@
   "tabWidth": 2,
   "trailingComma": "all",
   "useTabs": true,
+  "importOrder": [
+    "^react$",
+    "^@remix-run/(.*)$",
+    "<THIRD_PARTY_MODULES>",
+    "^~/(.*)$",
+    "^[./]"
+  ],
+  "importOrderSortSpecifiers": true,
+  "importOrderCaseInsensitive": true,
   "overrides": [
     {
       "files": ["**/*.json"],
@@ -25,5 +34,8 @@
       }
     }
   ],
-  "plugins": ["prettier-plugin-tailwindcss"]
+  "plugins": [
+    "prettier-plugin-tailwindcss",
+    "@trivago/prettier-plugin-sort-imports"
+  ]
 }

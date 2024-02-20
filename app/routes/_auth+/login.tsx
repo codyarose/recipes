@@ -1,4 +1,4 @@
-import { LoaderFunctionArgs, json } from '@remix-run/cloudflare'
+import { json, LoaderFunctionArgs } from '@remix-run/cloudflare'
 import { Form, useLoaderData } from '@remix-run/react'
 import { users } from 'drizzle/users.sql'
 import { Button } from '~/components/ui/button'
