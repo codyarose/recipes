@@ -33,10 +33,13 @@ export async function clientLoader({}: ClientLoaderFunctionArgs) {
 	// }
 
 	const savedRecipes = zodFilteredArray(zSavedRecipe).parse(await Recipe.list())
-	const tabs = (await Tab.list()).map(tab => ({
-		...tab,
-		name: savedRecipes.find(recipe => recipe.id === tab.id)?.recipe.name ?? '',
-	}))
+	const tabs = (await Tab.list())
+		.map(tab => ({
+			...tab,
+			name:
+				savedRecipes.find(recipe => recipe.id === tab.id)?.recipe.name ?? '',
+		}))
+		.sort((a, b) => b.createdAt - a.createdAt)
 
 	return json({
 		savedRecipes,

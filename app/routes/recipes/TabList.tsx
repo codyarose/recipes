@@ -26,7 +26,7 @@ function CloseTab({ id }: { id: string }) {
 	const fetcher = useFetcher({ key: `remove-tab-${id}` })
 	const params = useParams()
 	return (
-		<fetcher.Form method="POST" className="z-10">
+		<fetcher.Form method="POST" className="z-10 flex">
 			<input type="hidden" name="id" value={id} />
 			<input type="hidden" name="currentTabId" value={params.key} />
 			<Button

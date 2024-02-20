@@ -8,21 +8,31 @@ const tabStore = localforage.createInstance({ name: 'tab' })
 export const Info = z.object({
 	id: z.string(),
 	path: z.string(),
+	createdAt: z.number(),
 	lastVisitedTimestamp: z.number(),
 })
 export type Info = z.infer<typeof Info>
 
 export const create = zod(
-	Info.omit({ lastVisitedTimestamp: true }),
+	Info.omit({ createdAt: true, lastVisitedTimestamp: true }),
 	async input => {
+		const existingTab = await fromId(input.id)
+		if (existingTab) {
+			await tabStore.setItem(input.id, {
+				...existingTab,
+				lastVisitedTimestamp: Date.now(),
+			})
+			return input
+		}
+		const currentTimestamp = Date.now()
 		await tabStore.setItem(input.id, {
 			...input,
-			lastVisitedTimestamp: Date.now(),
+			createdAt: currentTimestamp,
+			lastVisitedTimestamp: currentTimestamp,
 		})
 		return input
 	},
 )
-
 export const remove = zod(Info.shape.id, async id => {
 	await tabStore.removeItem(id)
 	return id
