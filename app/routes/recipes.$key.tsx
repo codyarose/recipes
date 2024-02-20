@@ -13,14 +13,14 @@ import { Button } from '~/components/ui/button'
 import { zSavedRecipe } from '~/schema'
 import { Recipe } from '~/services/localforage/recipe'
 import { Tab } from '~/services/localforage/tab'
+import { invariantResponse } from '@epic-web/invariant'
 
 export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
 	const key = z.string().safeParse(params.key)
-	if (!key.success) throw new Response('Invalid recipe key', { status: 400 })
+	invariantResponse(key.success, 'Invalid recipe key')
 
 	const savedRecipe = zSavedRecipe.safeParse(await Recipe.fromId(key.data))
-	if (!savedRecipe.success)
-		throw new Response('Recipe not found', { status: 404 })
+	invariantResponse(savedRecipe.success, 'Recipe not found', { status: 404 })
 
 	await Tab.updateLastVisitedTimestamp(savedRecipe.data.id)
 

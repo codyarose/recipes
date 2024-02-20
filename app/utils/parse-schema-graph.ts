@@ -1,3 +1,4 @@
+import { invariantResponse } from '@epic-web/invariant'
 import { Duration } from 'dayjs/plugin/duration'
 import { decode } from 'html-entities'
 import {
@@ -85,12 +86,7 @@ function createTextParser(selector: string): Parser {
 
 export async function getRecipeFromUrl(url: string) {
 	const response = await fetch(url)
-	if (!response.ok) {
-		throw new Response('Failed to fetch recipe', {
-			status: 404,
-			statusText: 'Failed to fetch recipe',
-		})
-	}
+	invariantResponse(response.ok, 'Failed to fetch recipe', { status: 404 })
 	const page = await parseResponse(response, {
 		script: mergeParsers(
 			createTextParser('script[type="application/ld+json"]'),
@@ -98,15 +94,11 @@ export async function getRecipeFromUrl(url: string) {
 	})
 
 	const schema = zGraph.safeParse(JSON.parse(page.script ?? 'null'))
-	if (!schema.success) {
-		throw new Response('Invalid JSON-LD', { status: 400 })
-	}
+	invariantResponse(schema.success, 'Invalid JSON-LD', { status: 400 })
 	const recipe = findRecipe(schema.data)
 	const article = findArticle(schema.data)
 	const organization = findOrganization(schema.data)
-	if (!recipe) {
-		throw new Response('No recipe found', { status: 404 })
-	}
+	invariantResponse(recipe, 'No recipe found', { status: 404 })
 
 	return zSavedRecipe.omit({ id: true }).parse({
 		recipe: {
