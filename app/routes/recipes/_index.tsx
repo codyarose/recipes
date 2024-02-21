@@ -111,6 +111,7 @@ export async function clientAction({ serverAction }: ClientActionFunctionArgs) {
 		.with({ _action: 'add-recipe' }, async () => {
 			if (!data) return { data, lastResult }
 			const id = formatRecipeId(data)
+			await Recipe.create(data)
 			await Tab.create({ id, items: [id] })
 			return redirect(`/recipes/${id}`)
 		})

@@ -32,7 +32,7 @@ const slugify = (text: string) => text.replace(/\s+/g, '-').toLowerCase()
 export function formatRecipeId(data: Omit<zSavedRecipe, 'id'>) {
 	const organization = slugify(data.organization?.name || '')
 	const recipeName = slugify(data.recipe.name)
-	return `${organization}-${recipeName}`
+	return `${organization}-${recipeName}`.replace(/[^a-zA-Z0-9-_]/g, '')
 }
 
 dayjs.extend(duration)

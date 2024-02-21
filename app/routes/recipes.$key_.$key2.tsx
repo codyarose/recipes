@@ -8,6 +8,7 @@ import {
 } from '@remix-run/react'
 import { invariantResponse } from '@epic-web/invariant'
 import { ElementScrollRestoration } from '@epic-web/restore-scroll'
+import { CrossCircledIcon } from '@radix-ui/react-icons'
 import { z } from 'zod'
 import {
 	ResizableHandle,
@@ -98,11 +99,7 @@ export default function RecipeComponent() {
 				className="!overflow-y-auto h-full pt-11"
 				minSize={20}
 			>
-				{leftRecipe ? (
-					<RecipeLayout {...leftRecipe} />
-				) : (
-					<div>Recipe not found</div>
-				)}
+				{leftRecipe ? <RecipeLayout {...leftRecipe} /> : <RecipeNotFound />}
 			</ResizablePanel>
 			<ElementScrollRestoration elementQuery={`#${leftPanelId}`} />
 
@@ -118,13 +115,20 @@ export default function RecipeComponent() {
 				className="!overflow-y-auto h-full md:pt-11"
 				minSize={20}
 			>
-				{rightRecipe ? (
-					<RecipeLayout {...rightRecipe} />
-				) : (
-					<div>Recipe not found</div>
-				)}
+				{rightRecipe ? <RecipeLayout {...rightRecipe} /> : <RecipeNotFound />}
 			</ResizablePanel>
 			<ElementScrollRestoration elementQuery={`#${rightPanelId}`} />
 		</ResizablePanelGroup>
+	)
+}
+
+function RecipeNotFound() {
+	return (
+		<div className="w-full h-full flex justify-center items-center">
+			<div className="w-full max-w-sm max-h-sm mx-4 text-center px-6 py-12 justify-center flex items-center gap-2 text-xl text-red-800 bg-red-50 rounded-md">
+				<CrossCircledIcon width={20} height={20} />
+				Recipe not found
+			</div>
+		</div>
 	)
 }
