@@ -7,7 +7,7 @@ export * as Tab from './'
 const tabStore = localforage.createInstance({ name: 'tab' })
 export const Info = z.object({
 	id: z.string(),
-	path: z.string(),
+	items: z.array(z.string()),
 	createdAt: z.number(),
 	lastVisitedTimestamp: z.number(),
 })

@@ -36,8 +36,18 @@ export async function clientLoader({}: ClientLoaderFunctionArgs) {
 	const tabs = (await Tab.list())
 		.map(tab => ({
 			...tab,
-			name:
-				savedRecipes.find(recipe => recipe.id === tab.id)?.recipe.name ?? '',
+			items: tab.items.map(id => {
+				const recipe = savedRecipes.find(recipe => recipe.id === id)
+				return recipe
+					? {
+							id: recipe.id,
+							name: recipe.recipe.name,
+						}
+					: {
+							id,
+							name: 'Unknown',
+						}
+			}),
 		}))
 		.sort((a, b) => b.createdAt - a.createdAt)
 
@@ -101,12 +111,15 @@ export async function clientAction({ serverAction }: ClientActionFunctionArgs) {
 		.with({ _action: 'add-recipe' }, async () => {
 			if (!data) return { data, lastResult }
 			const id = formatRecipeId(data)
-			await Tab.create({ id, path: `/recipes/${id}` })
+			await Tab.create({ id, items: [id] })
 			return redirect(`/recipes/${id}`)
 		})
 		.with({ _action: 'add-tab' }, async input => {
-			await Tab.create({ id: input.id, path: `/recipes/${input.id}` })
-			return redirect(`/recipes/${input.id}`)
+			await Tab.create({ id: input.ids.join('-'), items: input.ids })
+			if (input.ids.length > 1) {
+				await Tab.remove(input.ids[0])
+			}
+			return redirect(`/recipes/${input.ids.join('/')}`)
 		})
 		.with({ _action: 'remove-tab' }, async input => {
 			await Tab.remove(input.id)
@@ -122,7 +135,7 @@ export async function clientAction({ serverAction }: ClientActionFunctionArgs) {
 					? prev
 					: current,
 			)
-			return redirect(previouslyActiveTab.path) // Redirect to the previously active tab
+			return redirect(`/recipes/${previouslyActiveTab.items.join('/')}`) // Redirect to the previously active tab
 		})
 		.exhaustive()
 }
@@ -135,7 +148,7 @@ export default function Recipes() {
 	return (
 		<div className="grid">
 			<div className="grid grid-rows-[min-content_1fr]">
-				<div className="no-scrollbar pointer-events-auto sticky left-0 right-0 top-0 z-50 flex gap-1 overflow-x-auto px-1 py-1 text-sm">
+				<div className="no-scrollbar pointer-events-auto fixed left-0 right-0 top-0 z-50 flex gap-1 h-11 overflow-x-auto px-1 py-1 text-sm">
 					<TabList />
 				</div>
 

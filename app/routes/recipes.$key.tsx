@@ -7,6 +7,7 @@ import {
 	Link,
 	redirect,
 	useLoaderData,
+	useParams,
 	useRouteLoaderData,
 	useSubmit,
 } from '@remix-run/react'
@@ -52,14 +53,40 @@ export function useRecipeClientLoader() {
 export async function clientAction({ request }: ClientActionFunctionArgs) {
 	const formData = await request.formData()
 	const recipeId = z.string().parse(formData.get('recipeId'))
-	await Tab.remove(recipeId)
-	await Recipe.remove(recipeId)
+	// Remove the recipe from the tab and recipe store
+	await Promise.all([Tab.remove(recipeId), Recipe.remove(recipeId)])
+	// Retrieve all tabs, then filter to get those that contain the recipe (split tabs)
+	const tabs = await Tab.list()
+	const splitTabsToUpdate = tabs.filter(tab => tab.items.includes(recipeId))
+	// Remove the split tabs and create new tabs with its remaining recipe
+	await Promise.all(
+		splitTabsToUpdate.map(async tab => {
+			// Remove the split tab
+			await Tab.remove(tab.id)
+			// Create new tabs for remaining items excluding the deleted recipe
+			const remainingItems = tab.items.filter(id => id !== recipeId)
+			return Promise.all([
+				remainingItems.map(id => Tab.create({ id, items: [id] })),
+			])
+		}),
+	)
+	// Redirect to the recipes page
 	return redirect('/recipes')
 }
 
 export default function RecipeComponent() {
-	const { id, recipe, organization } = useLoaderData<typeof clientLoader>()
+	const recipeData = useLoaderData<typeof clientLoader>()
+
+	return (
+		<div className="pt-11">
+			<RecipeLayout {...recipeData} />
+		</div>
+	)
+}
+
+export function RecipeLayout({ id, recipe, organization }: zSavedRecipe) {
 	const submit = useSubmit()
+	const params = useParams()
 	const recipeTimes = [
 		recipe.prepTime ? { label: 'Prep Time', value: recipe.prepTime } : null,
 		recipe.cookTime ? { label: 'Cook Time', value: recipe.cookTime } : null,
@@ -67,7 +94,7 @@ export default function RecipeComponent() {
 	].filter(Boolean)
 
 	return (
-		<div className="w-full mx-auto px-3 pt-4 text-sm max-w-prose">
+		<div className="w-full mx-auto px-3 pt-4 pb-20 text-sm max-w-prose">
 			<div className="px-2 flex flex-col">
 				<div className="grid grid-cols-[1fr_min-content] items-start">
 					<h1 className="text-3xl font-semibold leading-tight text-balance">
@@ -91,6 +118,11 @@ export default function RecipeComponent() {
 							>
 								<Form method="POST">
 									<input type="hidden" name="recipeId" value={id} />
+									<input
+										type="hidden"
+										name="currentTabId"
+										value={Object.values(params).join('-')}
+									/>
 									<button type="submit" className="flex items-center gap-1">
 										<TrashIcon />
 										Delete Recipe

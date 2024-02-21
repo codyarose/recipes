@@ -13,7 +13,6 @@ export default function App() {
 	return (
 		<Document>
 			<Outlet />
-			<footer className="h-20 w-full" />
 		</Document>
 	)
 }
