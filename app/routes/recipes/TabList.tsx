@@ -57,8 +57,8 @@ function CloseTab({ id }: { id: string }) {
 	const params = useParams()
 	return (
 		<fetcher.Form method="POST" className="z-10 flex">
-			<input type="hidden" name="id" value={id} />
-			<input type="hidden" name="currentTabId" value={params.tabId} />
+			<input type="hidden" name="id" defaultValue={id} />
+			<input type="hidden" name="currentTabId" defaultValue={params.tabId} />
 			<Button
 				type="submit"
 				size="icon"

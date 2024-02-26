@@ -164,7 +164,7 @@ function SplitRecipePageLayout() {
 		<ResizablePanelGroup
 			autoSaveId={tabId}
 			direction={isDesktop ? 'horizontal' : 'vertical'}
-			className="-mt-px !h-dvh md:mt-0 md:h-auto"
+			className="-mt-px !h-dvh md:mt-0 md:h-auto [&_[data-panel]]:pt-4 first:[&_[data-panel]]:pt-16 md:[&_[data-panel]]:pt-16"
 		>
 			{recipes.map((recipeData, index, arr) => {
 				const panelId = tabId + index
@@ -173,7 +173,7 @@ function SplitRecipePageLayout() {
 						<ResizablePanel
 							id={panelId}
 							order={index + 1}
-							className="h-full !overflow-y-auto first:pt-11 [&:not(:first)]:md:pt-11"
+							className="h-full !overflow-y-auto"
 							minSize={20}
 						>
 							{recipeData.recipe ? (
