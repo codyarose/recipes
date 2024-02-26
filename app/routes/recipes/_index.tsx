@@ -1,4 +1,8 @@
-import { ActionFunctionArgs, redirect } from '@remix-run/cloudflare'
+import {
+	ActionFunctionArgs,
+	MetaFunction,
+	redirect,
+} from '@remix-run/cloudflare'
 import {
 	ClientActionFunctionArgs,
 	ClientLoaderFunctionArgs,
@@ -20,6 +24,10 @@ import { tempRecipes } from '~/utils/temp'
 import { CommandDialog } from './CommandDialog'
 import { TabList } from './TabList'
 import { actionSchema } from './validators'
+
+export const meta: MetaFunction = () => {
+	return [{ title: 'Recipes' }]
+}
 
 export async function clientLoader({}: ClientLoaderFunctionArgs) {
 	const db = await database()

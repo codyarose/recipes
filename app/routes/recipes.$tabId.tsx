@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import { MetaFunction } from '@remix-run/cloudflare'
 import {
 	ClientActionFunctionArgs,
 	ClientLoaderFunctionArgs,
@@ -38,6 +39,27 @@ import { Recipe } from '~/services/idb/recipe'
 import { Tab } from '~/services/idb/tab'
 import { TabRecipe } from '~/services/idb/tab-recipe'
 import { useMedia, zodFilteredArray } from '~/utils/misc'
+
+export const meta: MetaFunction<typeof clientLoader> = ({ data }) => {
+	const parsed = z
+		.object({
+			recipes: z.array(
+				z.object({
+					recipe: z.object({
+						name: z.string(),
+					}),
+				}),
+			),
+		})
+		.safeParse(data)
+	return [
+		{
+			title: parsed.success
+				? parsed.data.recipes.map(recipe => recipe.recipe.name).join(' / ')
+				: 'Recipes',
+		},
+	]
+}
 
 export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
 	const tabId = z.string().safeParse(params.tabId)
