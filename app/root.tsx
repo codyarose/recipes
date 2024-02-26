@@ -26,7 +26,7 @@ function Document({ children }: PropsWithChildren<{}>) {
 				<Meta />
 				<Links />
 			</head>
-			<body className="grid min-h-dvh grid-rows-[1fr_min-content]">
+			<body className="grid min-h-dvh grid-rows-[1fr_min-content] bg-slate-50/50">
 				{children}
 				<ScrollRestoration getKey={location => location.pathname} />
 				<Scripts />

@@ -9,15 +9,12 @@ import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
 import { match, P } from 'ts-pattern'
 import { GeneralErrorBoundary } from '~/components/GeneralErrorBoundary'
-import { zSavedRecipe } from '~/schema'
-import { Recipe } from '~/services/localforage/recipe'
-import { Tab } from '~/services/localforage/tab'
-import {
-	formatRecipeId,
-	TimeoutError,
-	withTimeout,
-	zodFilteredArray,
-} from '~/utils/misc'
+import { database } from '~/services/idb/database'
+import { Organization } from '~/services/idb/organization'
+import { Recipe } from '~/services/idb/recipe'
+import { Tab } from '~/services/idb/tab'
+import { TabRecipe } from '~/services/idb/tab-recipe'
+import { TimeoutError, withTimeout, zodFilteredArray } from '~/utils/misc'
 import { checkUrl, getRecipeFromUrl } from '~/utils/parse-schema-graph'
 import { tempRecipes } from '~/utils/temp'
 import { CommandDialog } from './CommandDialog'
@@ -25,35 +22,51 @@ import { TabList } from './TabList'
 import { actionSchema } from './validators'
 
 export async function clientLoader({}: ClientLoaderFunctionArgs) {
+	const db = await database()
 	// if (import.meta.env.MODE === 'development') {
 	// 	tempRecipes.forEach(async item => {
+	// 		const org = await Organization.createIfNotExists(db, {
+	// 			name: item.organization.name,
+	// 			url: item.organization.url,
+	// 		})
 	// 		// @ts-expect-error temporary
-	// 		await Recipe.create(item)
+	// 		await Recipe.createIfNotExists(db, { ...item.recipe, orgId: org.id })
 	// 	})
 	// }
 
-	const savedRecipes = zodFilteredArray(zSavedRecipe).parse(await Recipe.list())
-	const tabs = (await Tab.list())
-		.map(tab => ({
-			...tab,
-			items: tab.items.map(id => {
-				const recipe = savedRecipes.find(recipe => recipe.id === id)
-				return recipe
-					? {
-							id: recipe.id,
-							name: recipe.recipe.name,
-						}
-					: {
-							id,
-							name: 'Unknown',
-						}
-			}),
-		}))
-		.sort((a, b) => b.createdAt - a.createdAt)
+	const [savedRecipes, allTabs, allTabRecipes] = await Promise.all([
+		Recipe.list(db).then(recipes =>
+			zodFilteredArray(Recipe.Info).parse(recipes),
+		),
+		Tab.list(db),
+		TabRecipe.list(db),
+	])
+	const recipeMap = new Map(savedRecipes.map(recipe => [recipe.id, recipe]))
+	const tabRecipesMap = allTabRecipes.reduce<Record<string, TabRecipe.Info[]>>(
+		(acc, tabRecipe) => {
+			if (!acc[tabRecipe.tabId]) {
+				acc[tabRecipe.tabId] = []
+			}
+			acc[tabRecipe.tabId].push(tabRecipe)
+			return acc
+		},
+		{},
+	)
+	const tabsWithItems = allTabs.map(tab => ({
+		...tab,
+		items: (tabRecipesMap[tab.id] || [])
+			.map(tabRecipe => {
+				const recipe = recipeMap.get(tabRecipe.recipeId)
+				return recipe ? { recipeId: recipe.id, name: recipe.name } : null
+			})
+			.filter((item): item is { recipeId: string; name: string } =>
+				Boolean(item),
+			),
+	}))
 
 	return json({
 		savedRecipes,
-		tabs,
+		tabs: tabsWithItems,
 	} as const)
 }
 
@@ -73,7 +86,8 @@ export async function action({ request }: ActionFunctionArgs) {
 		return match(submission.value)
 			.with({ _action: 'add-recipe' }, async input => {
 				const isWorkingUrl = await withTimeout(checkUrl(input.recipeUrl), 5000)
-				invariantResponse(isWorkingUrl, 'Invalid recipe URL')
+				invariantResponse(isWorkingUrl, 'The recipe URL is not reachable')
+
 				const { recipe, organization } = await getRecipeFromUrl(input.recipeUrl)
 				return json({
 					lastResult: submission.reply(),
@@ -86,8 +100,9 @@ export async function action({ request }: ActionFunctionArgs) {
 			.exhaustive()
 	} catch (error) {
 		if (error instanceof Response) throw error
-		const message = error instanceof Error ? error.message : 'Unknown error'
-		const status = error instanceof TimeoutError ? 500 : 400
+		const message =
+			error instanceof Error ? error.message : 'An unexpected error occurred'
+		const status = error instanceof TimeoutError ? 504 : 400
 		return json(
 			{
 				lastResult: submission.reply({
@@ -106,37 +121,61 @@ export async function clientAction({ serverAction }: ClientActionFunctionArgs) {
 		return { data, lastResult }
 	}
 
+	const db = await database()
+
 	const originalSubmission = actionSchema.parse(lastResult.initialValue)
 	return match(originalSubmission)
 		.with({ _action: 'add-recipe' }, async () => {
 			if (!data) return { data, lastResult }
-			const id = formatRecipeId(data)
-			await Recipe.create(data)
-			await Tab.create({ id, items: [id] })
-			return redirect(`/recipes/${id}`)
+			const org = await Organization.createIfNotExists(db, {
+				name: data.organization.name ?? 'Unknown',
+				url: data.organization.name ? data.organization.url : null,
+			})
+			invariantResponse(org, 'Failed to create organization')
+			const recipe = await Recipe.createIfNotExists(db, {
+				...data.recipe,
+				orgId: org.id,
+			})
+			invariantResponse(recipe, 'Failed to create recipe')
+			const tabId = await Tab.create(db)
+			await TabRecipe.create(db, { tabId, recipeId: recipe.id })
+
+			return redirect(`/recipes/${tabId}`)
 		})
 		.with({ _action: 'add-tab' }, async input => {
-			await Tab.create({ id: input.ids.join('-'), items: input.ids })
-			if (input.ids.length > 1) {
-				await Tab.remove(input.ids[0])
+			if (input.currentTabId && input.recipeIds.length > 1) {
+				const tabId = input.currentTabId
+				const [_currentRecipe, ...rest] = input.recipeIds
+				await Promise.all(
+					rest.map(id => TabRecipe.create(db, { tabId, recipeId: id })),
+				)
+				return redirect(`/recipes/${tabId}`)
 			}
-			return redirect(`/recipes/${input.ids.join('/')}`)
+
+			const tabId = await Tab.create(db)
+			await Promise.all(
+				input.recipeIds.map(id =>
+					TabRecipe.create(db, { tabId, recipeId: id }),
+				),
+			)
+			return redirect(`/recipes/${tabId}`)
 		})
 		.with({ _action: 'remove-tab' }, async input => {
-			await Tab.remove(input.id)
-			if (input.id !== input.currentTabId) {
-				return null // No need to redirect if the removed tab is not the current tab
-			}
-			const remainingTabs = await Tab.list()
-			if (!remainingTabs.length) {
-				return redirect('/recipes') // Redirect to the recipes index if no tabs are left
-			}
-			const previouslyActiveTab = remainingTabs.reduce((prev, current) =>
-				prev.lastVisitedTimestamp > current.lastVisitedTimestamp
-					? prev
-					: current,
+			await Tab.remove(db, input.id)
+			const tabChildren = await TabRecipe.fromTabId(db, { tabId: input.id })
+			await Promise.all(
+				tabChildren.map(tabChild => TabRecipe.remove(db, tabChild.id)),
 			)
-			return redirect(`/recipes/${previouslyActiveTab.items.join('/')}`) // Redirect to the previously active tab
+			if (input.id !== input.currentTabId) {
+				return redirect(`/recipes/${input.currentTabId}`)
+			}
+
+			const lastVisitedTab = await Tab.lastVisited(db)
+			if (!lastVisitedTab) {
+				return redirect('/recipes')
+			}
+
+			return redirect(`/recipes/${lastVisitedTab.id}`)
 		})
 		.exhaustive()
 }
@@ -149,7 +188,7 @@ export default function Recipes() {
 	return (
 		<div className="grid">
 			<div className="grid grid-rows-[min-content_1fr]">
-				<div className="no-scrollbar pointer-events-auto fixed left-0 right-0 top-0 z-50 flex gap-1 h-11 overflow-x-auto px-1 py-1 text-sm">
+				<div className="no-scrollbar pointer-events-auto fixed left-0 right-0 top-0 z-50 flex h-12 gap-1 overflow-x-auto px-1 pb-2 pt-1 text-sm">
 					<TabList />
 				</div>
 

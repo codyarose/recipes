@@ -10,6 +10,9 @@ const config = {
 	],
 	prefix: '',
 	theme: {
+		fontFamily: {
+			serif: 'Georgia Pro',
+		},
 		container: {
 			center: true,
 			padding: '2rem',
