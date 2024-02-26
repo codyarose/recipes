@@ -1,3 +1,4 @@
+import { PropsWithChildren } from 'react'
 import {
 	ActionFunctionArgs,
 	MetaFunction,
@@ -8,6 +9,8 @@ import {
 	ClientLoaderFunctionArgs,
 	json,
 	Outlet,
+	useLoaderData,
+	useRouteLoaderData,
 } from '@remix-run/react'
 import { parseWithZod } from '@conform-to/zod'
 import { invariantResponse } from '@epic-web/invariant'
@@ -76,6 +79,10 @@ export async function clientLoader({}: ClientLoaderFunctionArgs) {
 		savedRecipes,
 		tabs: tabsWithItems,
 	} as const)
+}
+
+function useRecipeIndexLoaderData() {
+	return useRouteLoaderData<typeof clientLoader>('routes/recipes/_index')
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -193,24 +200,45 @@ export function HydrateFallback() {
 }
 
 export default function Recipes() {
+	const { savedRecipes, tabs } = useLoaderData<typeof clientLoader>()
+	return (
+		<RecipesIndexLayout recipes={savedRecipes} tabs={tabs}>
+			<Outlet />
+		</RecipesIndexLayout>
+	)
+}
+
+function RecipesIndexLayout({
+	children,
+	recipes,
+	tabs,
+}: PropsWithChildren<{
+	recipes: Recipe.Info[]
+	tabs: (Tab.Info & { items: { recipeId: string; name: string }[] })[]
+}>) {
 	return (
 		<div className="grid">
 			<div className="grid grid-rows-[min-content_1fr]">
 				<div className="no-scrollbar pointer-events-auto fixed left-0 right-0 top-0 z-50 flex h-12 gap-1 overflow-x-auto px-1 pb-2 pt-1 text-sm">
-					<TabList />
+					<TabList tabs={tabs} />
 				</div>
 
-				<Outlet />
+				{children}
 			</div>
 
-			<CommandDialog />
+			<CommandDialog recipes={recipes} tabs={tabs} />
 		</div>
 	)
 }
 
 export function ErrorBoundary() {
-	return (
-		<div className="container pb-12 pt-6">
+	const data = useRecipeIndexLoaderData()
+	return data ? (
+		<RecipesIndexLayout recipes={data.savedRecipes} tabs={data.tabs}>
+			<GeneralErrorBoundary />
+		</RecipesIndexLayout>
+	) : (
+		<div className="container">
 			<GeneralErrorBoundary />
 		</div>
 	)

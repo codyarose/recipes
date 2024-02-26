@@ -1,18 +1,15 @@
 import { Fragment } from 'react'
-import {
-	Link,
-	useFetcher,
-	useLoaderData,
-	useLocation,
-	useParams,
-} from '@remix-run/react'
-import { Cross2Icon, ViewVerticalIcon } from '@radix-ui/react-icons'
+import { Link, useFetcher, useLocation, useParams } from '@remix-run/react'
+import { Cross2Icon } from '@radix-ui/react-icons'
 import { Button } from '~/components/ui/button'
 import { Separator } from '~/components/ui/separator'
-import { clientLoader } from './_index'
+import { Tab } from '~/services/idb/tab'
 
-export function TabList() {
-	const { tabs } = useLoaderData<typeof clientLoader>()
+export function TabList({
+	tabs,
+}: {
+	tabs: (Tab.Info & { items: { recipeId: string; name: string }[] })[]
+}) {
 	const location = useLocation()
 
 	return tabs.map(tab => {
@@ -24,7 +21,7 @@ export function TabList() {
 				key={tab.id}
 				data-active={isActive}
 				data-split={isSplit}
-				className="group relative flex min-w-52 max-w-52 items-center gap-0.5 overflow-hidden rounded-sm bg-slate-100 text-slate-950/65 shadow-md shadow-stone-500/20 transition-all hover:bg-slate-200 data-[active=true]:bg-slate-300 data-[active=true]:text-slate-950 data-[active=true]:shadow-stone-500/40"
+				className="group relative flex min-w-52 max-w-52 items-center gap-0.5 overflow-hidden rounded-sm bg-slate-100 text-slate-950/65 shadow-md shadow-stone-500/20 transition-all hover:bg-slate-200 hover:text-slate-950/85 data-[active=true]:bg-slate-300 data-[active=true]:text-slate-950 data-[active=true]:shadow-stone-500/40"
 			>
 				<div className="absolute inset-0 before:absolute before:inset-[1px] before:rounded-[3px] before:bg-white/70 before:shadow-[inset_0px_0px_2px_0px_rgb(0_0_0_/_0.05)] before:shadow-white after:absolute after:inset-0 after:bg-gradient-to-t after:from-slate-50/90 after:via-slate-50/40" />
 				{tab.items.map((item, index) => (

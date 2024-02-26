@@ -1,5 +1,5 @@
 import { ComponentProps, useState } from 'react'
-import { useLoaderData, useNavigate, useSubmit } from '@remix-run/react'
+import { useNavigate, useSubmit } from '@remix-run/react'
 import {
 	Cross2Icon,
 	MagnifyingGlassIcon,
@@ -18,12 +18,18 @@ import {
 	CommandList,
 	CommandSeparator,
 } from '~/components/ui/command'
+import { Recipe } from '~/services/idb/recipe'
+import { Tab } from '~/services/idb/tab'
 import { useMedia } from '~/utils/misc'
 import { useRecipeClientLoader } from '../recipes.$tabId'
-import { clientLoader } from './_index'
 
-export function CommandDialog() {
-	const { savedRecipes, tabs } = useLoaderData<typeof clientLoader>()
+export function CommandDialog({
+	recipes,
+	tabs,
+}: {
+	recipes: Recipe.Info[]
+	tabs: (Tab.Info & { items: { recipeId: string; name: string }[] })[]
+}) {
 	const submit = useSubmit()
 	const navigate = useNavigate()
 	const recipeData = useRecipeClientLoader()
@@ -31,7 +37,7 @@ export function CommandDialog() {
 	const canSplit = (currentTab?.items.length ?? 0) === 1
 	const [isCommandOpen, setIsCommandOpen] = useState(false)
 	const [search, setSearch] = useState('')
-	const isRecipesEmpty = savedRecipes.length === 0
+	const isRecipesEmpty = recipes.length === 0
 	const isSearchUrl = z.string().url().safeParse(search).success
 	const currentRecipeIds =
 		recipeData?.recipes.map(recipe => recipe.recipe?.id).filter(Boolean) ?? []
@@ -136,7 +142,7 @@ export function CommandDialog() {
 
 					{isRecipesEmpty ? null : (
 						<CommandGroup heading="Recipes" className="text-slate-950">
-							{savedRecipes.map(recipe => {
+							{recipes.map(recipe => {
 								// const isCurrentRecipe = currentRecipeIds.includes(recipe.id)
 								const prefetch = () => {
 									if (recipe.thumbnailUrl) {
