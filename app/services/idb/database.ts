@@ -1,12 +1,13 @@
-import type { DBSchema } from 'idb'
+import type { DBSchema, IDBPTransaction } from 'idb'
 import { openDB } from 'idb'
 import { z } from 'zod'
 import { Organization } from './organization'
 import { Recipe } from './recipe'
+import { RecipeProgress } from './recipe-progress'
 import { Tab } from './tab'
 import { TabRecipe } from './tab-recipe'
 
-interface DB extends DBSchema {
+export interface DB extends DBSchema {
 	organization: {
 		key: string
 		value: Organization.Info
@@ -34,6 +35,13 @@ interface DB extends DBSchema {
 		value: TabRecipe.Info
 		indexes: {
 			'by-tabId': string
+			'by-recipeId': string
+		}
+	}
+	['recipe-progress']: {
+		key: string
+		value: RecipeProgress.Info
+		indexes: {
 			'by-recipeId': string
 		}
 	}
@@ -67,6 +75,14 @@ export const database = async () =>
 			})
 			tabRecipeStore.createIndex('by-tabId', 'tabId', { unique: false })
 			tabRecipeStore.createIndex('by-recipeId', 'recipeId', { unique: false })
+
+			// RecipeProgress
+			const recipeProgressStore = db.createObjectStore('recipe-progress', {
+				keyPath: 'recipeId',
+			})
+			recipeProgressStore.createIndex('by-recipeId', 'recipeId', {
+				unique: true,
+			})
 		},
 	})
 
@@ -80,6 +96,19 @@ export function zodWithDb<
 	const result = (db: Db, input: z.infer<Schema>) => {
 		const parsed = schema.parse(input)
 		return func(db, parsed)
+	}
+	result.schema = schema
+	return result
+}
+
+export function zodWithTx<
+	Tx extends IDBPTransaction<any, any[], any>,
+	Schema extends z.ZodSchema<any, any, any>,
+	Return extends any,
+>(schema: Schema, func: (tx: Tx, value: z.infer<Schema>) => Return) {
+	const result = (tx: Tx, input: z.infer<Schema>) => {
+		const parsed = schema.parse(input)
+		return func(tx, parsed)
 	}
 	result.schema = schema
 	return result
