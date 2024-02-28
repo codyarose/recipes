@@ -85,18 +85,37 @@ export async function action({ request }: ActionFunctionArgs) {
 					})
 				}
 
-				const { recipe, organization } = await getRecipeFromUrl(input.recipeUrl)
-				return json({
-					lastResult: submission.reply(),
-					data: { recipe, organization },
-				} as const)
+				try {
+					const { recipe, organization } = await getRecipeFromUrl(
+						input.recipeUrl,
+					)
+					return json({
+						lastResult: submission.reply(),
+						data: { recipe, organization },
+					} as const)
+				} catch (error) {
+					if (error instanceof Response) {
+						const message =
+							error.status >= 400
+								? 'No recipe found. Please check the URL and try again.'
+								: 'An unexpected error occurred. Please try again.'
+						return json({
+							lastResult: submission.reply({
+								fieldErrors: {
+									recipeUrl: [message],
+								},
+							}),
+							data: null,
+						})
+					}
+					throw error
+				}
 			})
 			.with({ _action: P.union('add-tab', 'remove-tab') }, () => {
 				return json({ lastResult: submission.reply(), data: null } as const)
 			})
 			.exhaustive()
 	} catch (error) {
-		if (error instanceof Response) throw error
 		const message =
 			error instanceof Error ? error.message : 'An unexpected error occurred'
 		const status = error instanceof TimeoutError ? 504 : 400
