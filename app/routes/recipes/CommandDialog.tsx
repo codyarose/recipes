@@ -4,9 +4,11 @@ import {
 	ReactNode,
 	SetStateAction,
 	useContext,
+	useEffect,
+	useRef,
 	useState,
 } from 'react'
-import { useActionData, useNavigate, useSubmit } from '@remix-run/react'
+import { useFetcher, useNavigate, useSubmit } from '@remix-run/react'
 import {
 	Cross2Icon,
 	MagnifyingGlassIcon,
@@ -94,9 +96,17 @@ export function CommandDialog() {
 		setSearch,
 		recipeIndexData,
 	} = useCommand()
-	const actionData = useActionData<typeof clientAction>()
-	const error = actionData?.lastResult.error?.['recipeUrl']
-	console.log(error)
+	const inputRef = useRef<HTMLInputElement | null>(null)
+	const fetcher = useFetcher<typeof clientAction>({ key: 'recipe-search' })
+	const isSubmitting = fetcher.state === 'submitting'
+	const inFlightRecipeUrl = fetcher.formData?.get('recipeUrl')
+	const error = fetcher.data?.lastResult.error?.['recipeUrl']
+
+	useEffect(() => {
+		if (error) {
+			inputRef.current?.select()
+		}
+	}, [error])
 
 	return (
 		<>
@@ -106,18 +116,22 @@ export function CommandDialog() {
 				open={isCommandOpen}
 				onOpenChange={setIsCommandOpen}
 				shouldFilter={!z.string().url().safeParse(search).success}
-				className="relative bg-slate-200 text-slate-950 shadow-lg shadow-slate-700/40"
+				className="relative w-[calc(100vw-2rem)] bg-slate-200 text-slate-950 shadow-lg shadow-slate-700/40"
 			>
 				<div className="pointer-events-none absolute inset-0 before:absolute before:inset-[1px] before:rounded-[7px] before:bg-white/80 before:shadow-[inset_0px_0px_2px_0px_rgb(0_0_0_/_0.05)] before:shadow-white after:absolute after:inset-0 after:bg-gradient-to-t after:from-slate-50/40 after:via-transparent" />
 				<CommandInput
+					ref={inputRef}
+					disabled={isSubmitting}
 					placeholder={
 						recipeIndexData.savedRecipes.length === 0
 							? 'Paste a recipe URL here'
 							: 'Search recipes or paste a URL...'
 					}
-					value={search}
+					value={
+						typeof inFlightRecipeUrl === 'string' ? inFlightRecipeUrl : search
+					}
 					onValueChange={setSearch}
-					className="z-[1]"
+					className="z-[1] disabled:italic disabled:text-slate-950/50"
 				/>
 				<ErrorList errors={error} className="z-[1] px-4 italic" />
 
@@ -157,9 +171,10 @@ function SearchButton() {
 }
 
 function CommandAddRecipe() {
-	const submit = useSubmit()
-	const { search, setSearch, setIsCommandOpen } = useCommand()
+	const { search, setIsCommandOpen } = useCommand()
 	const isSearchUrl = z.string().url().safeParse(search).success
+	const fetcher = useFetcher<typeof clientAction>({ key: 'recipe-search' })
+	const isSubmitting = fetcher.state === 'submitting'
 
 	if (!isSearchUrl) return null
 
@@ -167,12 +182,12 @@ function CommandAddRecipe() {
 		<>
 			<CommandGroup>
 				<CommandItem
+					disabled={isSubmitting}
 					onSelect={() => {
-						submit(
+						fetcher.submit(
 							{ _action: 'add-recipe', recipeUrl: search },
 							{ method: 'POST' },
 						)
-						setSearch('')
 						setIsCommandOpen(false)
 					}}
 					className="line-clamp-1 flex flex-nowrap gap-2 text-nowrap"
