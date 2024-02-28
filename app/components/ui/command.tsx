@@ -34,7 +34,7 @@ const CommandDialog = ({
 }: CommandDialogProps) => {
 	return (
 		<Dialog {...props}>
-			<DialogContent className="overflow-hidden border-none p-0">
+			<DialogContent className="max-w-[calc(100vw-2rem)] overflow-hidden border-none p-0 sm:max-w-lg">
 				<Command
 					shouldFilter={shouldFilter}
 					className={twMerge(
