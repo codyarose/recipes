@@ -11,7 +11,7 @@ const config = {
 	prefix: '',
 	theme: {
 		fontFamily: {
-			serif: 'Georgia Pro',
+			serif: 'Georgia Pro, Georgia, serif',
 		},
 		container: {
 			center: true,
