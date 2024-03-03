@@ -1,0 +1,8 @@
+name = "notebook"
+compatibility_date = "2023-06-21"
+
+[[d1_databases]]
+binding = "DB" # i.e. available in your Worker on env.DB
+database_name = "notebook-db"
+database_id = "649520f5-de99-4b71-a353-cc8f5c4a4b23"
+preview_database_id = "DB"
